@@ -18,14 +18,52 @@ function TreeNode({ node }) {
 
 function App() {
   const [treeData, setTreeData] = useState(null);
+  const [addName, setAddName] = useState('');
+  const [addParent, setAddParent] = useState('');
+  const [removeName, setRemoveName] = useState('');
+  const [actionMessage, setActionMessage] = useState(''); // <-- Add this
+
+  const handleAdd = async () => {
+    if(!addName) {
+      setActionMessage('Please enter a name for the new asset.');
+      return;
+    }
+    const res = await fetch(`http://localhost:5114/api/asset/add?name=${encodeURIComponent(addName)}&parentName=${encodeURIComponent(addParent)}`,{
+      method: 'POST'
+    });
+    const msg = await res.text();
+    setActionMessage(msg);
+    setAddName('');
+    setAddParent('');
+    // Optionally refresh tree:
+    fetch('http://localhost:5114/api/asset/hierarchy')
+      .then(res => res.json())
+      .then(data => setTreeData(data))
+      .catch(() => setTreeData(null));
+  };
+
+  const handleRemove = async () => {
+    if(!removeName) {
+      setActionMessage('Please enter a name of the asset to remove.');
+      return;
+    }
+    const res = await fetch(`http://localhost:5114/api/asset/remove?name=${encodeURIComponent(removeName)}`, {
+      method: 'DELETE'
+    });
+    const msg = await res.text();
+    setActionMessage(msg);
+    setRemoveName('');
+    // Optionally refresh tree:
+    fetch('http://localhost:5114/api/asset/hierarchy')
+      .then(res => res.json())
+      .then(data => setTreeData(data))
+      .catch(() => setTreeData(null));
+  };
 
   useEffect(() => {
     fetch('http://localhost:5114/api/asset/hierarchy')
       .then(res => res.json())
-      .then(data => {
-        console.log('Fetched data:', data);
-        setTreeData(data);
-      })
+      .then(data => setTreeData(data))
       .catch(() => setTreeData(null));
   }, []);
 
@@ -89,6 +127,22 @@ function App() {
             <button onClick={handleDownload} className="download-button">
               <b>Download JSON</b>
             </button>
+            <div className="asset-action-container">
+              <input type="text" placeholder="Asset Name" className="asset-input" value={addName}
+              onChange={(e) => setAddName(e.target.value)} />
+
+              <input type="text" placeholder="Parent Name" className="asset-input" value={addParent}
+              onChange={(e) => setAddParent(e.target.value)} />
+              <button onClick={handleAdd} className="asset-action-button">ADD</button>
+            </div>
+            <div className="asset-action-container">
+              <input type="text" placeholder="Asset Name to remove" className="asset-input" value={removeName}
+              onChange={(e) => setRemoveName(e.target.value)} />
+              <button onClick={handleRemove} className="asset-action-button remove">REMOVE</button>
+            </div>
+            {actionMessage && (
+              <div className="action-message">{actionMessage}</div>
+            )}
           </div>
         </div>
       </div>
