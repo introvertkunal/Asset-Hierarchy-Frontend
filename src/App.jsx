@@ -1,14 +1,30 @@
 import { useEffect, useState } from 'react';
 import './App.css';
 
-function TreeNode({ node }) {
+function TreeNode({ node, expanded = {}, onToggle }) {
+  const hasChildren = node.children && node.children.length > 0;
+  const isExpanded = expanded[node.name] || false;
+  
+  const handleClick = () => {
+    if (hasChildren) {
+      onToggle(node.name);
+    }
+  };
+
   return (
-    <li className="tree-node">
-      <span className="node-name">{node.name}</span>
-      {node.children && node.children.length > 0 && (
-        <ul className="tree-branch">
+    <li className={`tree-node ${hasChildren ? 'has-children' : 'leaf'} ${isExpanded ? 'expanded' : ''}`}>
+      <span className="node-name" onClick={handleClick}>
+        {node.name}
+      </span>
+      {hasChildren && (
+        <ul className={`tree-branch ${isExpanded ? 'expanded' : ''}`}>
           {node.children.map((child, idx) => (
-            <TreeNode key={idx} node={child} />
+            <TreeNode 
+              key={idx} 
+              node={child} 
+              expanded={expanded}
+              onToggle={onToggle}
+            />
           ))}
         </ul>
       )}
@@ -21,21 +37,43 @@ function App() {
   const [addName, setAddName] = useState('');
   const [addParent, setAddParent] = useState('');
   const [removeName, setRemoveName] = useState('');
-  const [actionMessage, setActionMessage] = useState(''); // <-- Add this
+  const [actionMessage, setActionMessage] = useState('');
+  const [expanded, setExpanded] = useState({});
+
+  
+  const validNameRegex = /^[a-zA-Z0-9 _]+$/;
+
+  const handleToggle = (nodeName) => {
+    setExpanded(prev => ({
+      ...prev,
+      [nodeName]: !prev[nodeName]
+    }));
+  };
 
   const handleAdd = async () => {
-    if(!addName) {
+    const trimmedAddName = addName.trim();
+    const trimmedAddParent = addParent.trim();
+
+    if (!trimmedAddName) {
       setActionMessage('Please enter a name for the new asset.');
       return;
     }
-    const res = await fetch(`http://localhost:5114/api/asset/add?name=${encodeURIComponent(addName)}&parentName=${encodeURIComponent(addParent)}`,{
-      method: 'POST'
-    });
+    if (!validNameRegex.test(trimmedAddName)) {
+      setActionMessage('Asset Name can only contain letters, digits, spaces, and underscores.');
+      return;
+    }
+    if (trimmedAddParent && !validNameRegex.test(trimmedAddParent)) {
+      setActionMessage('Parent Name can only contain letters, digits, spaces, and underscores.');
+      return;
+    }
+    const res = await fetch(
+      `http://localhost:5114/api/asset/add?name=${encodeURIComponent(trimmedAddName)}&parentName=${encodeURIComponent(trimmedAddParent)}`,
+      { method: 'POST' }
+    );
     const msg = await res.text();
     setActionMessage(msg);
     setAddName('');
     setAddParent('');
-    // Optionally refresh tree:
     fetch('http://localhost:5114/api/asset/hierarchy')
       .then(res => res.json())
       .then(data => setTreeData(data))
@@ -43,17 +81,23 @@ function App() {
   };
 
   const handleRemove = async () => {
-    if(!removeName) {
+    const trimmedRemoveName = removeName.trim();
+
+    if (!trimmedRemoveName) {
       setActionMessage('Please enter a name of the asset to remove.');
       return;
     }
-    const res = await fetch(`http://localhost:5114/api/asset/remove?name=${encodeURIComponent(removeName)}`, {
-      method: 'DELETE'
-    });
+    if (!validNameRegex.test(trimmedRemoveName)) {
+      setActionMessage('Asset Name to remove can only contain letters, digits, spaces, and underscores.');
+      return;
+    }
+    const res = await fetch(
+      `http://localhost:5114/api/asset/remove?name=${encodeURIComponent(trimmedRemoveName)}`,
+      { method: 'DELETE' }
+    );
     const msg = await res.text();
     setActionMessage(msg);
     setRemoveName('');
-    // Optionally refresh tree:
     fetch('http://localhost:5114/api/asset/hierarchy')
       .then(res => res.json())
       .then(data => setTreeData(data))
@@ -100,13 +144,24 @@ function App() {
           {treeData ? (
             <ul className="tree">
               {Array.isArray(treeData) ? (
-                treeData.map((node, idx) => <TreeNode key={idx} node={node} />)
+                treeData.map((node, idx) => (
+                  <TreeNode 
+                    key={idx} 
+                    node={node} 
+                    expanded={expanded}
+                    onToggle={handleToggle}
+                  />
+                ))
               ) : (
-                <TreeNode node={treeData} />
+                <TreeNode 
+                  node={treeData} 
+                  expanded={expanded}
+                  onToggle={handleToggle}
+                />
               )}
             </ul>
           ) : (
-            <p className="loading-text">Loading tree...</p>
+            <p className="loading-text">Loading Data.....</p>
           )}
         </div>
         <div className="right-panel">
