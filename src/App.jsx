@@ -37,6 +37,7 @@ function App() {
   const [addName, setAddName] = useState('');
   const [addParent, setAddParent] = useState('');
   const [removeName, setRemoveName] = useState('');
+  const [searchName, setSearchName] = useState('');
   const [actionMessage, setActionMessage] = useState('');
   const [expanded, setExpanded] = useState({});
 
@@ -103,6 +104,26 @@ function App() {
       .then(data => setTreeData(data))
       .catch(() => setTreeData(null));
   };
+
+  const handleSearch = async () => {
+    const trimmedSearchName = searchName.trim();
+
+    if(!trimmedSearchName){
+      setActionMessage('Please enter a name to search.');
+      return;
+    }
+    if(!validNameRegex.test(trimmedSearchName)) {
+      setActionMessage('Search Name can only contain letters, digits, spaces, and underscores.');
+      return;
+    }
+
+    const res = await fetch(`http://localhost:5114/api/asset/search?name=${encodeURIComponent(trimmedSearchName)}`,
+    { method: 'GET'});
+    const data = await res.text();
+    setActionMessage(data);
+    setSearchName('');
+
+  }
 
   useEffect(() => {
     fetch('http://localhost:5114/api/asset/hierarchy')
@@ -195,6 +216,11 @@ function App() {
               onChange={(e) => setRemoveName(e.target.value)} />
               <button onClick={handleRemove} className="asset-action-button remove">REMOVE</button>
             </div>
+            <div className="asset-action-container">
+              <input type = "text" placeholder="Search Asset" className="asset-input" value={searchName}
+              onChange= {(e) => setSearchName(e.target.value)} />
+              <button onClick={handleSearch} className="asset-action-button search">SEARCH</button>
+              </div>
             {actionMessage && (
               <div className="action-message">{actionMessage}</div>
             )}
