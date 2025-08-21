@@ -1,47 +1,54 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import './App.css';
+import SuggestionInput from './components/SuggestionInput.jsx';
+import TreeNode from './components/TreeNode.jsx';
+import FilteredTreeNode from './components/FilteredTreeNode.jsx';
+import FocusedNodeView from './components/FocusedNodeView.jsx';
+import RemoveModal  from './components/RemoveModal.jsx';
+import useMessageTimeout from './hooks/useMessageTimeout.js';
+import {filterTree, findNodeAndParent, buildAssetMap } from './Utils/treeUtils.js';  
+import { addAsset, downloadFile, fetchHierarchy, removeAsset, uploadFile } from './services/api.js';
 
-function TreeNode({ node, expanded = {}, onToggle }) {
-  const hasChildren = node.children && node.children.length > 0;
-  const isExpanded = expanded[node.name] || false;
-  
-  const handleClick = () => {
-    if (hasChildren) {
-      onToggle(node.name);
-    }
-  };
 
-  return (
-    <li className={`tree-node ${hasChildren ? 'has-children' : 'leaf'} ${isExpanded ? 'expanded' : ''}`}>
-      <span className="node-name" onClick={handleClick}>
-        {node.name}
-      </span>
-      {hasChildren && (
-        <ul className={`tree-branch ${isExpanded ? 'expanded' : ''}`}>
-          {node.children.map((child, idx) => (
-            <TreeNode 
-              key={idx} 
-              node={child} 
-              expanded={expanded}
-              onToggle={onToggle}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
-  );
-}
+
 
 function App() {
+
+  const [refreshKey, setRefreshKey] = useState(0);
   const [treeData, setTreeData] = useState(null);
   const [addName, setAddName] = useState('');
   const [addParent, setAddParent] = useState('');
   const [removeName, setRemoveName] = useState('');
   const [searchName, setSearchName] = useState('');
-  const [actionMessage, setActionMessage] = useState('');
+  const [actionMessage, setActionMessage] = useMessageTimeout('');
   const [expanded, setExpanded] = useState({});
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [pendingRemoveName, setPendingRemoveName] = useState('');
+  const [assetMap, setAssetMap] = useState(new Map());
+  const [suggestions, setSuggestions] = useState([]);
+  const [focusedNode, setFocusedNode] = useState(null);
+  const [showFocusedView, setShowFocusedView] = useState(false);
+  const [parentSuggestions, setParentSuggestions] = useState([]);
+  const [removeSuggestions, setRemoveSuggestions] = useState([]);
+  const [filteredTreeData, setFilteredTreeData] = useState(null);
 
   
+ const loadData = async () =>{
+        try{
+           const data = await fetchHierarchy();
+           setTreeData(data);
+           setAssetMap(buildAssetMap(data));
+        }catch(err){
+           setActionMessage(err.message);
+        }
+    }
+     
+  //  Initial Data loaded
+  useEffect(()=> {
+    loadData();
+  }
+    ,[refreshKey]);
+
   const validNameRegex = /^[a-zA-Z0-9 _]+$/;
 
   const handleToggle = (nodeName) => {
@@ -67,23 +74,16 @@ function App() {
       setActionMessage('Parent Name can only contain letters, digits, spaces, and underscores.');
       return;
     }
-    const res = await fetch(
-      `http://localhost:5114/api/asset/add?name=${encodeURIComponent(trimmedAddName)}&parentName=${encodeURIComponent(trimmedAddParent)}`,
-      { method: 'POST' }
-    );
-    const msg = await res.text();
+   
+    const msg = await addAsset(trimmedAddName, trimmedAddParent);
     setActionMessage(msg);
     setAddName('');
     setAddParent('');
-    fetch('http://localhost:5114/api/asset/hierarchy')
-      .then(res => res.json())
-      .then(data => setTreeData(data))
-      .catch(() => setTreeData(null));
+    setRefreshKey(prev=> prev+1);
   };
 
-  const handleRemove = async () => {
+  const handleRemoveClick = () => {
     const trimmedRemoveName = removeName.trim();
-
     if (!trimmedRemoveName) {
       setActionMessage('Please enter a name of the asset to remove.');
       return;
@@ -92,23 +92,30 @@ function App() {
       setActionMessage('Asset Name to remove can only contain letters, digits, spaces, and underscores.');
       return;
     }
-    const res = await fetch(
-      `http://localhost:5114/api/asset/remove?name=${encodeURIComponent(trimmedRemoveName)}`,
-      { method: 'DELETE' }
-    );
-    const msg = await res.text();
-    setActionMessage(msg);
-    setRemoveName('');
-    fetch('http://localhost:5114/api/asset/hierarchy')
-      .then(res => res.json())
-      .then(data => setTreeData(data))
-      .catch(() => setTreeData(null));
+    setPendingRemoveName(trimmedRemoveName);
+    setShowRemoveModal(true);
   };
 
-  const handleSearch = async () => {
-    const trimmedSearchName = searchName.trim();
+  const handleRemoveConfirm = async () => {
+    setShowRemoveModal(false);
+    
+    const msg = await removeAsset(pendingRemoveName);
+    setActionMessage(msg);
+    setRemoveName('');
+    setPendingRemoveName('');
+    setRefreshKey(prev=> prev+1);
+  };
 
-    if(!trimmedSearchName){
+  const handleRemoveCancel = () => {
+    setShowRemoveModal(false);
+    setPendingRemoveName('');
+    setActionMessage('Asset removal cancelled.');
+  };
+
+  const handleSearch = async (searchTerm) => {
+    const trimmedSearchName = searchTerm.trim();
+
+    if(!trimmedSearchName) {
       setActionMessage('Please enter a name to search.');
       return;
     }
@@ -117,37 +124,37 @@ function App() {
       return;
     }
 
-    const res = await fetch(`http://localhost:5114/api/asset/search?name=${encodeURIComponent(trimmedSearchName)}`,
-    { method: 'GET'});
-    const data = await res.text();
-    setActionMessage(data);
+    const result = findNodeAndParent(treeData, trimmedSearchName);
+    if (result) {
+      setFocusedNode(result);
+      setShowFocusedView(true);
+      setActionMessage('');
+    } else {
+      setFocusedNode(null);
+      setShowFocusedView(false);
+      setActionMessage('Asset not found.');
+    }
     setSearchName('');
-
+    setSuggestions([]);
   }
-
-  useEffect(() => {
-    fetch('http://localhost:5114/api/asset/hierarchy')
-      .then(res => res.json())
-      .then(data => setTreeData(data))
-      .catch(() => setTreeData(null));
-  }, []);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
-
-    await fetch('http://localhost:5114/api/asset/replace-json', {
-      method: 'POST',
-      body: formData,
-    });
-    window.location.reload();
+    try{
+    const msg = await uploadFile(file);
+    setActionMessage(msg);
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  }catch(err){
+    setActionMessage(err.message);
+  }
   };
 
   const handleDownload = async () => {
-    const response = await fetch('http://localhost:5114/api/asset/downloadFile');
-    const blob = await response.blob();
+    
+    const blob = await downloadFile();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -156,35 +163,171 @@ function App() {
     window.URL.revokeObjectURL(url);
   };
 
+  const handleSearchInput = (e) => {
+    const value = e.target.value.toLowerCase();
+    setSearchName(value);
+    
+    if (value.trim() === '') {
+      setSuggestions([]);
+      setFilteredTreeData(null);
+      return;
+    }
+
+    // Filter tree based on search input
+    const filteredTree = filterTree(treeData, value);
+    setFilteredTreeData(filteredTree);
+
+    // Get suggestions from assetMap
+    const matches = Array.from(assetMap.entries())
+      .filter(([key]) => key.includes(value))
+      .map(([_, originalName]) => originalName)
+      .slice(0, 5);
+    setSuggestions(matches);
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    setSearchName(suggestion);
+    setSuggestions([]);
+    // Perform the search
+    handleSearch(suggestion);
+  };
+
+  const handleParentInput = (e) => {
+    const value = e.target.value.toLowerCase();
+    setAddParent(e.target.value);
+    
+    if (value.trim() === '') {
+      setParentSuggestions([]);
+      return;
+    }
+
+    const matches = Array.from(assetMap.entries())
+      .filter(([key]) => key.includes(value))
+      .map(([_, originalName]) => originalName)
+      .slice(0, 5); // Limit to 5 suggestions
+    
+    setParentSuggestions(matches);
+  };
+
+  const handleRemoveInput = (e) => {
+    const value = e.target.value.toLowerCase();
+    setRemoveName(e.target.value);
+    
+    if (value.trim() === '') {
+      setRemoveSuggestions([]);
+      return;
+    }
+
+    const matches = Array.from(assetMap.entries())
+      .filter(([key]) => key.includes(value))
+      .map(([_, originalName]) => originalName)
+      .slice(0, 5); // Limit to 5 suggestions
+    
+    setRemoveSuggestions(matches);
+  };
+
   return (
     <div className="app-container">
       <h1 className="app-title">Asset Hierarchy</h1>
+      
+      {/* Search Section */}
+      <div className="search-container">
+        <div className="search-box">
+          <input 
+            type="text" 
+            placeholder="Search Asset..." 
+            className="search-input"
+            value={searchName}
+            onChange={handleSearchInput}
+          />
+          <button onClick={() => handleSearch(searchName)} className="search-button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+        </div>
+        {suggestions.length > 0 && (
+          <ul className="search-suggestions">
+            {suggestions.map((suggestion, index) => (
+              <li 
+                key={index}
+                onClick={() => handleSuggestionClick(suggestion)}
+                className="suggestion-item"
+              >
+                {suggestion}
+              </li>
+            ))}
+          </ul>
+        )}
+        {actionMessage && (
+          <div className="search-message">{actionMessage}</div>
+        )}
+      </div>
+      
+      {/* Left Panel */}
       <div className="main-content">
         <div className="left-panel">
-          <h2 className="panel-title">Hierarchy of Assets</h2>
-          {treeData ? (
-            <ul className="tree">
-              {Array.isArray(treeData) ? (
-                treeData.map((node, idx) => (
-                  <TreeNode 
+          <h2 className="panel-title">
+            {showFocusedView ? (
+              <div className="title-with-back">
+                <button className="back-button" onClick={() => setShowFocusedView(false)}>
+                  ← Back
+                </button>
+                Focused View
+              </div>
+            ) : searchName.trim() ? (
+              <div className="title-with-back">
+                <button className="back-button" onClick={() => setSearchName('')}>
+                  ← Back
+                </button>
+                Filtered View
+              </div>
+            ) : (
+              "Hierarchy of Assets"
+            )}
+          </h2>
+          {showFocusedView && focusedNode ? (
+            <FocusedNodeView node={focusedNode.node} parent={focusedNode.parent} />
+          ) : searchName.trim() && filteredTreeData ? (
+            <ul className="tree filtered-tree">
+              {Array.isArray(filteredTreeData) ? (
+                filteredTreeData.map((node, idx) => (
+                  <FilteredTreeNode 
                     key={idx} 
-                    node={node} 
-                    expanded={expanded}
-                    onToggle={handleToggle}
+                    node={node}
                   />
                 ))
               ) : (
-                <TreeNode 
-                  node={treeData} 
-                  expanded={expanded}
-                  onToggle={handleToggle}
-                />
+                <FilteredTreeNode node={filteredTreeData} />
               )}
             </ul>
           ) : (
-            <p className="loading-text">Loading Data.....</p>
+            treeData ? (
+              <ul className="tree">
+                {Array.isArray(treeData) ? (
+                  treeData.map((node, idx) => (
+                    <TreeNode 
+                      key={idx} 
+                      node={node} 
+                      expanded={expanded}
+                      onToggle={handleToggle}
+                    />
+                  ))
+                ) : (
+                  <TreeNode 
+                    node={treeData} 
+                    expanded={expanded}
+                    onToggle={handleToggle}
+                  />
+                )}
+              </ul>
+            ) : (
+              <p className="loading-text">Loading Data.....</p>
+            )
           )}
         </div>
+        {/* Right panel */}
         <div className="right-panel">
           <h2 className="panel-title">Menu</h2>
           <div className="menu-actions">
@@ -204,29 +347,50 @@ function App() {
               <b>Download JSON</b>
             </button>
             <div className="asset-action-container">
-              <input type="text" placeholder="Asset Name" className="asset-input" value={addName}
-              onChange={(e) => setAddName(e.target.value)} />
-
-              <input type="text" placeholder="Parent Name" className="asset-input" value={addParent}
-              onChange={(e) => setAddParent(e.target.value)} />
+              <input 
+                type="text" 
+                placeholder="Asset Name" 
+                className="asset-input" 
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)} 
+              />
+              <SuggestionInput
+                placeholder="Parent Name"
+                value={addParent}
+                onChange={handleParentInput}
+                suggestions={parentSuggestions}
+                onSuggestionClick={(suggestion) => {
+                  setAddParent(suggestion);
+                  setParentSuggestions([]);
+                }}
+                className="asset-input"
+              />
               <button onClick={handleAdd} className="asset-action-button">ADD</button>
             </div>
             <div className="asset-action-container">
-              <input type="text" placeholder="Asset Name to remove" className="asset-input" value={removeName}
-              onChange={(e) => setRemoveName(e.target.value)} />
-              <button onClick={handleRemove} className="asset-action-button remove">REMOVE</button>
+              <SuggestionInput
+                placeholder="Asset Name to remove"
+                value={removeName}
+                onChange={handleRemoveInput}
+                suggestions={removeSuggestions}
+                onSuggestionClick={(suggestion) => {
+                  setRemoveName(suggestion);
+                  setRemoveSuggestions([]);
+                }}
+                className="asset-input"
+              />
+              <button onClick={handleRemoveClick} className="asset-action-button remove">REMOVE</button>
             </div>
-            <div className="asset-action-container">
-              <input type = "text" placeholder="Search Asset" className="asset-input" value={searchName}
-              onChange= {(e) => setSearchName(e.target.value)} />
-              <button onClick={handleSearch} className="asset-action-button search">SEARCH</button>
-              </div>
-            {actionMessage && (
-              <div className="action-message">{actionMessage}</div>
-            )}
           </div>
         </div>
       </div>
+       {showRemoveModal && (
+        <RemoveModal 
+          pendingRemoveName={pendingRemoveName} 
+          onConfirm={handleRemoveConfirm} 
+          onCancel={handleRemoveCancel} 
+        />
+      )}
     </div>
   );
 }
