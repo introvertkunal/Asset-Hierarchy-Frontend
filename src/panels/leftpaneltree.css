@@ -1,0 +1,489 @@
+/* Tree structure */
+.tree {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+
+.tree-node {
+  position: relative;
+  padding-left: 25px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.tree-node.has-children {
+  cursor: default; /* Remove pointer cursor from entire node */
+}
+
+.node-container {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-icon {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.tree-node.has-children.expanded .toggle-icon {
+  background: linear-gradient(135deg, #e53e3e, #c53030);
+  box-shadow: 0 2px 8px rgba(229, 62, 62, 0.3);
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.tree-node.has-children:hover .toggle-icon {
+  transform: translateY(-50%) scale(1.1);
+}
+
+.tree-node.has-children.expanded:hover .toggle-icon {
+  transform: translateY(-50%) scale(1.1) rotate(180deg);
+}
+
+.tree-node:hover {
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 8px;
+  margin-left: -8px;
+  margin-right: -8px;
+  padding-left: 33px;
+}
+
+.node-name {
+  color: #2d3748;
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.6;
+  padding: 4px 8px 4px 24px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: inline-block;
+  position: relative;
+}
+
+.tree-node.has-children .node-name {
+  padding-left: 8px;
+}
+
+.tree-node.leaf .node-name {
+  padding-left: 24px;
+}
+
+.tree-node.leaf::before {
+  content: '•';
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #cbd5e0;
+  font-size: 14px;
+  transition: color 0.2s ease;
+}
+
+.tree-node.leaf:hover::before {
+  color: #667eea;
+}
+
+.node-name:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  transform: translateX(4px);
+}
+
+.tree-branch {
+  position: relative;
+  padding-left: 20px;
+  margin-top: 8px;
+  list-style-type: none;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tree-branch.expanded {
+  max-height: 1000px;
+  opacity: 1;
+  margin-bottom: 8px;
+}
+
+/* Connection lines */
+.tree-branch .tree-node::after {
+  content: '';
+  position: absolute;
+  top: 0.8em;
+  left: -12px;
+  width: 12px;
+  height: 0;
+  border-top: 2px solid #cbd5e0;
+  transition: border-color 0.2s ease;
+}
+
+.tree-branch .tree-node:hover::after {
+  border-color: #667eea;
+}
+
+.tree-branch::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8px;
+  width: 0;
+  height: 100%;
+  border-left: 2px solid #cbd5e0;
+  transition: border-color 0.2s ease;
+}
+
+.tree-branch:hover::before {
+  border-color: #667eea;
+}
+
+
+/* Focused node view */
+.focused-node-view {
+  padding: 20px;
+}
+
+.focused-parent,
+.focused-current,
+.focused-children {
+  margin-bottom: 24px;
+}
+
+.focused-item {
+  background: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin: 8px 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.focused-item.parent {
+  border-left: 4px solid #3498db;
+}
+
+.focused-item.current {
+  border-left: 4px solid #2ecc71;
+  font-weight: bold;
+}
+
+.focused-item.child {
+  border-left: 4px solid #e74c3c;
+}
+
+/* Filtered tree */
+.filtered-tree .tree-node {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.filtered-node {
+  color: #2c5282;
+  font-weight: 500;
+}
+
+.filtered-tree .tree-branch {
+  display: block;
+  margin-left: 20px;
+}
+
+.filtered-tree .node-name:hover {
+  background-color: rgba(44, 82, 130, 0.1);
+}
+
+/* panels/leftpaneltree.css */
+/* panels/leftpaneltree.css */
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+/* From Uiverse.io by Yaya12085 */ 
+.Btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 45px;
+  height: 45px;
+  border-radius: calc(45px/2);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition-duration: .3s;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.199);
+  background: linear-gradient(144deg, #7ee787, #4ade80 50%, #34d399);
+
+
+
+}
+
+/* plus sign */
+.sign {
+  width: 100%;
+  font-size: 2.2em;
+  color: white;
+  transition-duration: .3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* text */
+.text {
+  position: absolute;
+  right: 0%;
+  width: 0%;
+  opacity: 0;
+  color: white;
+  font-size: 1.4em;
+  font-weight: 500;
+  transition-duration: .3s;
+}
+/* hover effect on button width */
+.Btn:hover {
+  width: 125px;
+  transition-duration: .3s;
+}
+
+.Btn:hover .sign {
+  width: 30%;
+  transition-duration: .3s;
+  padding-left: 15px;
+}
+/* hover effect button's text */
+.Btn:hover .text {
+  opacity: 1;
+  width: 70%;
+  transition-duration: .3s;
+  padding-right: 15px;
+}
+/* button click effect*/
+.Btn:active {
+  transform: translate(2px ,2px);
+}
+
+.asset-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+/* From Uiverse.io by philipo30 */
+.delete-button {
+  position: relative;
+  padding: 0.5em;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1em;
+  transition: transform 0.2s ease;
+  
+  
+}
+
+.trash-svg {
+  width: 2em;   /* ⬅️ adjust size here */
+  height: 2em;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  overflow: visible;
+}
+
+#lid-group {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.delete-button:hover #lid-group {
+  transform: rotate(-28deg) translateY(2px);
+}
+
+.delete-button:active #lid-group {
+  transform: rotate(-12deg) scale(0.98);
+}
+
+.delete-button:hover .trash-svg {
+  transform: scale(1.08) rotate(3deg);
+}
+
+.delete-button:active .trash-svg {
+  transform: scale(0.96) rotate(-1deg);
+}
+
+.edit-button {
+  width: 50px; /* slightly bigger button */
+  height: 50px;
+  border-radius: 50%;
+  background-color: rgb(20, 20, 20);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.164);
+  cursor: pointer;
+  transition: 0.3s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+.edit-svgIcon {
+  width: 24px; /* bigger pencil */
+  height: 24px;
+  transition: 0.3s ease;
+}
+
+.edit-svgIcon path {
+  fill: white;
+}
+
+.edit-button:hover {
+  width: 130px;
+  border-radius: 50px;
+  background-color: rgb(255, 69, 69);
+  justify-content: flex-start; /* so text appears after icon */
+  padding-left: 15px; /* keeps icon aligned */
+}
+
+.edit-button:hover .edit-svgIcon {
+  transform: rotate(360deg);
+  transition: 0.5s ease-in-out;
+}
+
+.edit-button::before {
+  content: "Edit";
+  position: absolute;
+  left: 55px; /* always start after icon */
+  opacity: 0;
+  color: white;
+  font-size: 15px;
+  transition: 0.3s ease;
+  font-weight: 500;
+}
+
+.edit-button:hover::before {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+
+
+
+
+.edit-input {
+  width: 100%;
+  padding: 8px;
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  width: 400px;
+  max-width: 90%;
+}
+
+.modal h3 {
+  margin: 0 0 16px;
+  font-size: 1.2rem;
+  color: #2d3748;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.modal-error {
+  color: #e53e3e;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modal-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.modal-btn.confirm {
+  background: #48bb78;
+  color: white;
+}
+
+.modal-btn.confirm:hover {
+  background: #38a169;
+}
+
+.modal-btn.cancel {
+  background: #e2e8f0;
+  color: #2d3748;
+}
+
+.modal-btn.cancel:hover {
+  background: #cbd5e0;
+}

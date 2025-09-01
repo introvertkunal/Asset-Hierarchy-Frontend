@@ -1,0 +1,219 @@
+/* JSON buttons (top-right corner, outside search) */
+.json-buttons {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+  height: 44px;
+  z-index: 10;
+}
+
+/* Common JSON Button style */
+.json-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 18px;
+  border-radius: 25px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  line-height: 1;
+  height: 100%;
+}
+
+/* Update action message styling */
+.action-message {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(100% + 10px);
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+  border: 1px solid #fc8181;
+  border-radius: 12px;
+  color: #742a2a;
+  font-weight: 500;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  box-shadow: 0 4px 12px rgba(229, 62, 62, 0.1);
+  width: max-content;
+  max-width: 100px;
+  text-align: center;
+  z-index: 4000;
+}
+
+/* Import button */
+.import-button {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: #fff;
+}
+.import-button:hover {
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+  transform: translateY(-2px);
+}
+
+/* Export button */
+.export-button {
+  background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+  color: #fff;
+}
+.export-button:hover {
+  background: linear-gradient(135deg, #e53e3e 0%, #9b2c2c 100%);
+  transform: translateY(-2px);
+}
+
+/* Hide upload input */
+.upload-input {
+  display: none;
+}
+
+
+/* Search container centered */
+.search-container {
+  max-width: 900px;
+  margin: 0 auto 4rem auto; /* Increased bottom margin to accommodate message */
+  padding: 0 20px;
+  box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 4000;
+}
+
+/* Search bar */
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 30px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  padding: 0 14px;
+  height: 44px;
+  flex: 0 1 500px; /* Max width of 500px, can shrink */
+  position: relative;
+  z-index: 4100; /* From previous fix */
+}
+
+/* Input inside search */
+.search-input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 0.95rem;
+  padding: 0 8px;
+  height: 100%;
+  border-radius: 30px;
+  background: transparent;
+}
+.search-input::placeholder {
+  color: #a0aec0;
+}
+
+/* Search button (icon) */
+.search-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  transition: color 0.2s ease;
+}
+.search-button:hover {
+  color: #5a67d8;
+}
+
+/* Suggestions dropdown */
+.search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0; /* Ensure it stretches to match search-box width */
+  width: 100%; /* Match the width of search-box */
+  margin-top: 6px;
+  background: #fff;
+  border-radius: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 4px 0;
+  z-index: 5000; /* From previous fix */
+}
+
+
+/* Suggestion item */
+.suggestion-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 8px;
+  margin: 4px 8px;
+  transition: background 0.2s ease;
+}
+.suggestion-item:hover {
+  background: #f7fafc;
+}
+
+/* Search message (feedback below suggestions) */
+.search-message {
+
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: #fff;
+  color: #2d3748;
+  text-align: center;
+  width: 500px;
+  margin-left: 460px;
+
+  animation: fadeInOut 3s ease;
+  transition: opacity 0.3s ease;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(-10px); }
+  10% { opacity: 1; transform: translateY(0); }
+  90% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .app-title {
+    font-size: 2.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .json-buttons {
+    position: static;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+  .search-container {
+    padding: 0 10px;
+  }
+  .search-box {
+    flex: 1;
+  }
+  .search-suggestions {
+  width: 100vw;    /* full screen width on mobile */
+  left: 50%;
+  transform: translateX(-50%); /* center align */
+  max-width: 500px;
+}
+
+}
+
+
+.search-input::placeholder {
+  color: #a0aec0;
+}
+
+.search-button:hover {
+  color: #5a67d8;
+}

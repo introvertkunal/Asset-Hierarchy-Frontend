@@ -1,305 +1,572 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
-import SuggestionInput from './components/SuggestionInput.jsx';
 import TreeNode from './components/TreeNode.jsx';
 import FilteredTreeNode from './components/FilteredTreeNode.jsx';
 import FocusedNodeView from './components/FocusedNodeView.jsx';
-import RemoveModal  from './components/RemoveModal.jsx';
 import useMessageTimeout from './hooks/useMessageTimeout.js';
-import {filterTree, findNodeAndParent, buildAssetMap } from './Utils/treeUtils.js';  
-import { addAsset, downloadFile, fetchHierarchy, removeAsset, uploadFile } from './services/api.js';
-
-
+import { filterTree, findNodeAndParent, buildAssetMap } from './Utils/treeUtils.js';
+import './panels/searchbar.css';
+import './panels/leftpaneltree.css';
+import { addChildNode, addRoot, downloadFile, fetchHierarchy, removeAsset, searchAsset, updateAsset } from './services/api.js';
+import Fuse from 'fuse.js';
+import './panels/signals.css';
+import { fetchSignalsByAssetId, addSignal, removeSignal, updateSignal } from './services/api.js';
+import { useCallback } from 'react';
 
 
 function App() {
-
+  // Essential states
   const [refreshKey, setRefreshKey] = useState(0);
   const [treeData, setTreeData] = useState(null);
-  const [addName, setAddName] = useState('');
-  const [addParent, setAddParent] = useState('');
-  const [removeName, setRemoveName] = useState('');
   const [searchName, setSearchName] = useState('');
   const [actionMessage, setActionMessage] = useMessageTimeout('');
   const [expanded, setExpanded] = useState({});
-  const [showRemoveModal, setShowRemoveModal] = useState(false);
-  const [pendingRemoveName, setPendingRemoveName] = useState('');
   const [assetMap, setAssetMap] = useState(new Map());
   const [suggestions, setSuggestions] = useState([]);
   const [focusedNode, setFocusedNode] = useState(null);
   const [showFocusedView, setShowFocusedView] = useState(false);
-  const [parentSuggestions, setParentSuggestions] = useState([]);
-  const [removeSuggestions, setRemoveSuggestions] = useState([]);
   const [filteredTreeData, setFilteredTreeData] = useState(null);
-
-  
- const loadData = async () =>{
-        try{
-           const data = await fetchHierarchy();
-           setTreeData(data);
-           setAssetMap(buildAssetMap(data));
-        }catch(err){
-           setActionMessage(err.message);
-        }
-    }
-     
-  //  Initial Data loaded
-  useEffect(()=> {
-    loadData();
-  }
-    ,[refreshKey]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newAssetName, setNewAssetName] = useState('');
+  const [addError, setAddError] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [showAddChildModal, setShowAddChildModal] = useState(false);
+  const [childName, setChildName] = useState('');
+  const [childAddError, setChildAddError] = useState('');
+  const [signals, setSignals] = useState([]);
+const [showSignals, setShowSignals] = useState(true);
+const [showAddSignalModal, setShowAddSignalModal] = useState(false);
+const [signalForm, setSignalForm] = useState({ signalName: '', signalType: 'Integer', description: '' });
+const [signalError, setSignalError] = useState('');
+const [loadingSignals, setLoadingSignals] = useState(false);
+const [editSignal, setEditSignal] = useState(null);
 
   const validNameRegex = /^[a-zA-Z0-9 _]+$/;
 
-  const handleToggle = (nodeName) => {
-    setExpanded(prev => ({
+  // Load initial data
+  const loadData = async () => {
+    try {
+      const data = await fetchHierarchy();
+      setTreeData(data);
+      setAssetMap(buildAssetMap(data));
+    } catch (err) {
+      setActionMessage(err.message);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [refreshKey]);
+
+
+  const loadSignals = useCallback(async () => {
+  if (!focusedNode || !focusedNode.node?.id) {
+    setSignals([]);
+    return;
+  }
+  setLoadingSignals(true);
+  try {
+    const data = await fetchSignalsByAssetId(focusedNode.node.id);
+    console.log("Fetched signals:", data);
+    setSignals(data);
+  } catch (err) {
+    setActionMessage(err.message);
+    setSignals([]);
+  }
+  setLoadingSignals(false);
+}, [focusedNode, setActionMessage]);
+
+useEffect(() => {
+  loadSignals();
+}, [loadSignals]);
+
+// Toggle show/hide signals
+const toggleShowSignals = () => {
+  setShowSignals(prev => !prev);
+};
+
+// Handle input change in add/edit modal
+const handleSignalInputChange = (e) => {
+  const { name, value } = e.target;
+  setSignalForm(prev => ({ ...prev, [name]: value }));
+};
+
+// Validate Signal form
+const validateSignalForm = () => {
+  const trimmedName = signalForm.signalName.trim();
+  if (!trimmedName) {
+    setSignalError('Please enter a signal name.');
+    return false;
+  }
+  if (!validNameRegex.test(trimmedName)) {
+    setSignalError('Signal Name can only contain letters, digits, spaces, and underscores.');
+    return false;
+  }
+  setSignalError('');
+  return true;
+};
+
+// Submit new signal
+const handleAddSignal = async () => {
+  if (!validateSignalForm()) return;
+
+  try {
+    const newSignal = {
+      SignalName: signalForm.signalName.trim(),
+      SignalType: signalForm.signalType,
+      Description: signalForm.description.trim(),
+    };
+    const msg = await addSignal(focusedNode.node.id, newSignal);
+    setActionMessage(msg);
+    setShowAddSignalModal(false);
+    setSignalForm({ signalName: '', signalType: 'Integer', description: '' });
+    loadSignals();
+  } catch (err) {
+    setSignalError(err.message || 'Failed to add signal.');
+  }
+};
+
+// Cancel add signal modal
+const handleAddSignalCancel = () => {
+  setShowAddSignalModal(false);
+  setSignalForm({ signalName: '', signalType: 'Integer', description: '' });
+  setSignalError('');
+};
+
+// Remove signal
+const handleRemoveSignal = async (signalId) => {
+  if (!window.confirm('Are you sure you want to delete this signal?')) return;
+  try {
+    const msg = await removeSignal(signalId);
+    setActionMessage(msg);
+    loadSignals();
+  } catch (err) {
+    setActionMessage(err.message);
+  }
+};
+
+// Edit Signal (Optional you asked only add, but UI has edit button, so I'll add basic handler)
+
+const handleEditSignalClick = (signal) => {
+  setEditSignal(signal);
+  setSignalForm({ 
+    signalName: signal.signalName || signal.SignalName, // depends how data keys come
+    signalType: signal.signalType || signal.SignalType, // use signalType from signal object
+    description: signal.description || signal.Description || '',
+  });
+  setShowAddSignalModal(true);
+};
+
+const handleUpdateSignal = async () => {
+  if (!editSignal) return;
+  if (!validateSignalForm()) return;
+
+  try {
+    const updatedSignal = {
+      signalId: editSignal.id || editSignal.signalId || editSignal.SignalId, // Add signalId
+      signalName: signalForm.signalName.trim(),
+      signalType: signalForm.signalType,
+      description: signalForm.description.trim(),
+      assetId: focusedNode.node.id // Add assetId
+    };
+
+    // Pass both signalId and updated data
+    const msg = await updateSignal(
+      editSignal.id || editSignal.signalId || editSignal.SignalId, 
+      updatedSignal
+    );
+    
+    setActionMessage(msg);
+    setShowAddSignalModal(false);
+    setEditSignal(null);
+    setSignalForm({ signalName: '', signalType: 'Integer', description: '' });
+    loadSignals();
+  } catch (err) {
+    setSignalError(err.message || 'Failed to update signal.');
+  }
+};
+
+const handleModalCancel = () => {
+  setShowAddSignalModal(false);
+  setEditSignal(null);
+  setSignalForm({ signalName: '', signalType: 'Integer', description: '' });
+  setSignalError('');
+};
+
+  // Tree handling functions
+  const handleToggle = (nodeId) => {
+    setExpanded((prev) => ({
       ...prev,
-      [nodeName]: !prev[nodeName]
+      [nodeId]: !prev[nodeId],
     }));
   };
 
-  const handleAdd = async () => {
-    const trimmedAddName = addName.trim();
-    const trimmedAddParent = addParent.trim();
-
-    if (!trimmedAddName) {
-      setActionMessage('Please enter a name for the new asset.');
-      return;
-    }
-    if (!validNameRegex.test(trimmedAddName)) {
-      setActionMessage('Asset Name can only contain letters, digits, spaces, and underscores.');
-      return;
-    }
-    if (trimmedAddParent && !validNameRegex.test(trimmedAddParent)) {
-      setActionMessage('Parent Name can only contain letters, digits, spaces, and underscores.');
-      return;
-    }
-   
-    const msg = await addAsset(trimmedAddName, trimmedAddParent);
-    setActionMessage(msg);
-    setAddName('');
-    setAddParent('');
-    setRefreshKey(prev=> prev+1);
-  };
-
-  const handleRemoveClick = () => {
-    const trimmedRemoveName = removeName.trim();
-    if (!trimmedRemoveName) {
-      setActionMessage('Please enter a name of the asset to remove.');
-      return;
-    }
-    if (!validNameRegex.test(trimmedRemoveName)) {
-      setActionMessage('Asset Name to remove can only contain letters, digits, spaces, and underscores.');
-      return;
-    }
-    setPendingRemoveName(trimmedRemoveName);
-    setShowRemoveModal(true);
-  };
-
-  const handleRemoveConfirm = async () => {
-    setShowRemoveModal(false);
-    
-    const msg = await removeAsset(pendingRemoveName);
-    setActionMessage(msg);
-    setRemoveName('');
-    setPendingRemoveName('');
-    setRefreshKey(prev=> prev+1);
-  };
-
-  const handleRemoveCancel = () => {
-    setShowRemoveModal(false);
-    setPendingRemoveName('');
-    setActionMessage('Asset removal cancelled.');
-  };
-
-  const handleSearch = async (searchTerm) => {
-    const trimmedSearchName = searchTerm.trim();
-
-    if(!trimmedSearchName) {
-      setActionMessage('Please enter a name to search.');
-      return;
-    }
-    if(!validNameRegex.test(trimmedSearchName)) {
-      setActionMessage('Search Name can only contain letters, digits, spaces, and underscores.');
-      return;
-    }
-
-    const result = findNodeAndParent(treeData, trimmedSearchName);
+  const handleNodeClick = (nodeId) => {
+    const result = findNodeAndParent(treeData, nodeId);
     if (result) {
       setFocusedNode(result);
       setShowFocusedView(true);
       setActionMessage('');
+      setEditMode(false);
+      setEditName(result.node.name);
     } else {
       setFocusedNode(null);
       setShowFocusedView(false);
       setActionMessage('Asset not found.');
     }
+  };
+
+  // Root asset handling
+  const handleRootAdd = async () => {
+    const trimmedNewAssetName = newAssetName.trim();
+    if (!trimmedNewAssetName) {
+      setAddError('Please enter a name for the new asset.');
+      return;
+    }
+    if (!validNameRegex.test(trimmedNewAssetName)) {
+      setAddError('Asset Name can only contain letters, digits, spaces, and underscores.');
+      return;
+    }
+    setAddError('');
+
+    try {
+      const msg = await addRoot(trimmedNewAssetName, null);
+      setActionMessage(msg);
+      setNewAssetName('');
+      setShowAddModal(false);
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      setAddError(err.message || 'Failed to add asset.');
+    }
+  };
+
+  // Modal handling
+  const handleAddModalCancel = () => {
+    setShowAddModal(false);
+    setNewAssetName('');
+    setAddError('');
+  };
+
+  // Child asset handling
+  const handleAddChild = async () => {
+    const trimmedChildName = childName.trim();
+    if (!trimmedChildName) {
+      setChildAddError('Please enter a name for the new child asset.');
+      return;
+    }
+    if (!validNameRegex.test(trimmedChildName)) {
+      setChildAddError('Asset Name can only contain letters, digits, spaces, and underscores.');
+      return;
+    }
+    setChildAddError('');
+
+    if (focusedNode) {
+      try {
+        const msg = await addChildNode(trimmedChildName, focusedNode.node.id);
+        setActionMessage(msg);
+        setChildName('');
+        setShowAddChildModal(false);
+        setRefreshKey((prev) => prev + 1);
+      } catch (err) {
+        setChildAddError(err.message || 'Failed to add child asset.');
+      }
+    }
+  };
+
+  const handleAddChildModalCancel = () => {
+    setShowAddChildModal(false);
+    setChildName('');
+    setChildAddError('');
+  };
+
+  // Delete handling
+  const handleDeleteClick = () => {
+    if (focusedNode) {
+      setShowDeleteModal(true);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    setShowDeleteModal(false);
+    if (focusedNode) {
+      try {
+        const msg = await removeAsset(focusedNode.node.id);
+        setActionMessage(msg);
+        setFocusedNode(null);
+        setShowFocusedView(false);
+        setRefreshKey((prev) => prev + 1);
+      } catch (err) {
+        setActionMessage(err.message);
+      }
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setActionMessage('Asset deletion cancelled.');
+  };
+
+  // Edit handling
+  const handleEditClick = () => {
+    if (focusedNode) {
+      setEditMode(true);
+      setEditName(focusedNode.node.name);
+    }
+  };
+
+  const handleEditSave = async (e) => {
+    if (e.key === 'Enter' && focusedNode) {
+      const trimmedEditName = editName.trim();
+      if (!trimmedEditName) {
+        setActionMessage('Please enter a name for the asset.');
+        return;
+      }
+      if (!validNameRegex.test(trimmedEditName)) {
+        setActionMessage('Asset Name can only contain letters, digits, spaces, and underscores.');
+        return;
+      }
+
+      try {
+        const msg = await updateAsset(focusedNode.node.id, trimmedEditName);
+        setActionMessage(msg);
+        setEditMode(false);
+        setFocusedNode((prev) => ({
+          node: { ...prev.node, name: trimmedEditName },
+          parent: prev.parent,
+        }));
+        setRefreshKey((prev) => prev + 1);
+      } catch (err) {
+        setActionMessage(err.message);
+      }
+    }
+  };
+
+  // Search handling
+  const handleSearch = async (searchTerm) => {
+    const trimmedSearchName = searchTerm.trim();
+
+    if (!trimmedSearchName) {
+      setActionMessage('Please enter a name to search.');
+      return;
+    }
+    if (!validNameRegex.test(trimmedSearchName)) {
+      setActionMessage('Search Name can only contain letters, digits, spaces, and underscores.');
+      return;
+    }
+
+    try {
+      const result = await searchAsset(trimmedSearchName);
+      setFocusedNode({
+        node: {
+          id: result.id,
+          name: result.name,
+          children: result.children,
+          signals: result.signals,
+        },
+        parent: { name: result.parentName },
+      });
+      setShowFocusedView(true);
+      setActionMessage('');
+    } catch (err) {
+      setFocusedNode(null);
+      setShowFocusedView(false);
+      setActionMessage(err.message);
+    }
     setSearchName('');
     setSuggestions([]);
-  }
+  };
 
+  // File handling
   const handleUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try{
-    const msg = await uploadFile(file);
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("http://localhost:5114/api/asset/replace-file", {
+      method: "POST",
+      body: formData, 
+    });
+
+    const msg = await response.text();
     setActionMessage(msg);
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
-  }catch(err){
+
+    setTimeout(() => setRefreshKey(prev => prev + 1), 1000);
+  } catch (err) {
     setActionMessage(err.message);
   }
-  };
+};
+
 
   const handleDownload = async () => {
-    
-    const blob = await downloadFile();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'asset_hierarchy.json';
-    a.click();
-    window.URL.revokeObjectURL(url);
+    try {
+      const blob = await downloadFile();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'asset_hierarchy.json';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setActionMessage(err.message);
+    }
   };
 
+  // Search suggestions
+  const fuse = new Fuse(
+    Array.from(assetMap.entries()).map(([id, name]) => ({ id, name })),
+    {
+      keys: ['name'],
+      includeScore: true,
+      threshold: 0.4,
+    }
+  );
+
   const handleSearchInput = (e) => {
-    const value = e.target.value.toLowerCase();
+    const value = e.target.value;
     setSearchName(value);
-    
+
     if (value.trim() === '') {
       setSuggestions([]);
       setFilteredTreeData(null);
       return;
     }
 
-    // Filter tree based on search input
     const filteredTree = filterTree(treeData, value);
     setFilteredTreeData(filteredTree);
 
-    // Get suggestions from assetMap
-    const matches = Array.from(assetMap.entries())
-      .filter(([key]) => key.includes(value))
-      .map(([_, originalName]) => originalName)
-      .slice(0, 5);
-    setSuggestions(matches);
+    const results = fuse.search(value).slice(0, 5);
+    setSuggestions(results.map((r) => r.item));
   };
 
   const handleSuggestionClick = (suggestion) => {
-    setSearchName(suggestion);
+    setSearchName(suggestion.name);
     setSuggestions([]);
-    // Perform the search
-    handleSearch(suggestion);
-  };
-
-  const handleParentInput = (e) => {
-    const value = e.target.value.toLowerCase();
-    setAddParent(e.target.value);
-    
-    if (value.trim() === '') {
-      setParentSuggestions([]);
-      return;
-    }
-
-    const matches = Array.from(assetMap.entries())
-      .filter(([key]) => key.includes(value))
-      .map(([_, originalName]) => originalName)
-      .slice(0, 5); // Limit to 5 suggestions
-    
-    setParentSuggestions(matches);
-  };
-
-  const handleRemoveInput = (e) => {
-    const value = e.target.value.toLowerCase();
-    setRemoveName(e.target.value);
-    
-    if (value.trim() === '') {
-      setRemoveSuggestions([]);
-      return;
-    }
-
-    const matches = Array.from(assetMap.entries())
-      .filter(([key]) => key.includes(value))
-      .map(([_, originalName]) => originalName)
-      .slice(0, 5); // Limit to 5 suggestions
-    
-    setRemoveSuggestions(matches);
+    handleSearch(suggestion.name);
   };
 
   return (
     <div className="app-container">
       <h1 className="app-title">Asset Hierarchy</h1>
-      
-      {/* Search Section */}
+      <div className="json-buttons">
+        <label htmlFor="upload-input" className="json-button import-button">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <rect x="4" y="4" width="16" height="16" rx="2" ry="2" fill="none" />
+            <path d="M12 16V8m0 0l-4 4m4-4l4 4" />
+          </svg>
+          Import JSON
+        </label>
+        <input
+          type="file"
+          accept="application/json"
+          id="upload-input"
+          onChange={handleUpload}
+          className="upload-input"
+        />
+        <button onClick={handleDownload} className="json-button export-button">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <rect x="4" y="4" width="16" height="16" rx="2" ry="2" fill="none" />
+            <path d="M12 8v8m0 0l-4-4m4 4l4-4" />
+          </svg>
+          Export JSON
+        </button>
+      </div>
+
       <div className="search-container">
         <div className="search-box">
-          <input 
-            type="text" 
-            placeholder="Search Asset..." 
+          <input
+            type="text"
+            placeholder="Search Asset by Name..."
             className="search-input"
             value={searchName}
             onChange={handleSearchInput}
           />
           <button onClick={() => handleSearch(searchName)} className="search-button">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
           </button>
+          {suggestions.length > 0 && (
+            <ul className="search-suggestions">
+              {suggestions.map((s, i) => (
+                <li key={i} onClick={() => handleSuggestionClick(s)} className="suggestion-item">
+                  {s.name} (ID: {s.id})
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {suggestions.length > 0 && (
-          <ul className="search-suggestions">
-            {suggestions.map((suggestion, index) => (
-              <li 
-                key={index}
-                onClick={() => handleSuggestionClick(suggestion)}
-                className="suggestion-item"
-              >
-                {suggestion}
-              </li>
-            ))}
-          </ul>
-        )}
-        {actionMessage && (
-          <div className="search-message">{actionMessage}</div>
-        )}
+       
       </div>
-      
-      {/* Left Panel */}
+      {actionMessage && <div className="search-message">{actionMessage}</div>}
+
       <div className="main-content">
         <div className="left-panel">
-          <h2 className="panel-title">
-            {showFocusedView ? (
-              <div className="title-with-back">
-                <button className="back-button" onClick={() => setShowFocusedView(false)}>
-                  ← Back
-                </button>
-                Focused View
-              </div>
-            ) : searchName.trim() ? (
-              <div className="title-with-back">
-                <button className="back-button" onClick={() => setSearchName('')}>
-                  ← Back
-                </button>
-                Filtered View
-              </div>
-            ) : (
-              "Hierarchy of Assets"
-            )}
-          </h2>
-          {showFocusedView && focusedNode ? (
-            <FocusedNodeView node={focusedNode.node} parent={focusedNode.parent} />
-          ) : searchName.trim() && filteredTreeData ? (
+          <div className="panel-header">
+            <h2 className="panel-title">
+              {searchName.trim() ? (
+                <div className="title-with-back">
+                  <button className="back-button" onClick={() => setSearchName('')}>
+                    ← Back
+                  </button>
+                  Filtered View
+                </div>
+              ) : (
+                'Hierarchy of Assets'
+              )}
+            </h2>
+            <button className="Btn" onClick={() => setShowAddModal(true)}>
+              <div className="sign">+</div>
+              <div className="text">Add </div>
+            </button>
+          </div>
+
+          {searchName.trim() && filteredTreeData ? (
             <ul className="tree filtered-tree">
               {Array.isArray(filteredTreeData) ? (
                 filteredTreeData.map((node, idx) => (
-                  <FilteredTreeNode 
-                    key={idx} 
+                  <FilteredTreeNode
+                    key={idx}
                     node={node}
+                    onNodeClick={handleNodeClick}
                   />
                 ))
               ) : (
-                <FilteredTreeNode node={filteredTreeData} />
+                <FilteredTreeNode
+                  node={filteredTreeData}
+                  onNodeClick={handleNodeClick}
+                />
               )}
             </ul>
           ) : (
@@ -307,18 +574,20 @@ function App() {
               <ul className="tree">
                 {Array.isArray(treeData) ? (
                   treeData.map((node, idx) => (
-                    <TreeNode 
-                      key={idx} 
-                      node={node} 
+                    <TreeNode
+                      key={idx}
+                      node={node}
                       expanded={expanded}
                       onToggle={handleToggle}
+                      onNodeClick={handleNodeClick}
                     />
                   ))
                 ) : (
-                  <TreeNode 
-                    node={treeData} 
+                  <TreeNode
+                    node={treeData}
                     expanded={expanded}
                     onToggle={handleToggle}
+                    onNodeClick={handleNodeClick}
                   />
                 )}
               </ul>
@@ -327,69 +596,245 @@ function App() {
             )
           )}
         </div>
-        {/* Right panel */}
-        <div className="right-panel">
-          <h2 className="panel-title">Menu</h2>
-          <div className="menu-actions">
-            <div className="upload-container">
-              <label htmlFor="upload-input" className="upload-label">
-                Upload JSON
-              </label>
-              <input
-                type="file"
-                accept="application/json"
-                id="upload-input"
-                onChange={handleUpload}
-                className="upload-input"
-              />
+
+  <div className="right-panel">
+  <div className="panel-header">
+    <h3 className="panel-title">Selected Asset</h3>
+    {showFocusedView && focusedNode && (
+      <div className="asset-actions">
+        <button
+          className="Btn"
+          onClick={() => setShowAddChildModal(true)}
+        >
+          <div className="sign">+</div>
+          <div className="text">Add</div>
+        </button>
+        <button
+          className="action-button edit edit-button"
+          onClick={handleEditClick}
+          aria-label="Edit item"
+        >
+          <svg className="edit-svgIcon" viewBox="0 0 512 512">
+            <path d="M410.3 231l11.3-11.3-33.9-33.9-62.1-62.1L291.7 89.8l-11.3 11.3-22.6 22.6L58.6 322.9c-10.4 10.4-18 23.3-22.2 37.4L1 480.7c-2.5 8.4-.2 17.5 6.1 23.7s15.3 8.5 23.7 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2L387.7 253.7 410.3 231zM160 399.4l-9.1 22.7c-4 3.1-8.5 5.4-13.3 6.9L59.4 452l23-78.1c1.4-4.9 3.8-9.4 6.9-13.3l22.7-9.1v32c0 8.8 7.2 16 16 16h32zM362.7 18.7L348.3 33.2 325.7 55.8 314.3 67.1l33.9 33.9 62.1 62.1 33.9 33.9 11.3-11.3 22.6-22.6 14.5-14.5c25-25 25-65.5 0-90.5L453.3 18.7c-25-25-65.5-25-90.5 0zm-47.4 168l-144 144c-6.2 6.2-16.4 6.2-22.6 0s-6.2-16.4 0-22.6l144-144c6.2-6.2 16.4-6.2 22.6 0s6.2 16.4 0 22.6z"></path>
+          </svg>
+        </button>
+        <button
+          className="action-button delete delete-button"
+          onClick={handleDeleteClick}
+          aria-label="Delete item"
+        >
+          <svg className="trash-svg" viewBox="0 -10 64 74" xmlns="http://www.w3.org/2000/svg">
+            <g id="trash-can">
+              <rect x="16" y="24" width="32" height="30" rx="3" ry="3" fill="#e74c3c"></rect>
+              <g transform-origin="12 18" id="lid-group">
+                <rect x="12" y="12" width="40" height="6" rx="2" ry="2" fill="#c0392b"></rect>
+                <rect x="26" y="8" width="12" height="4" rx="2" ry="2" fill="#c0392b"></rect>
+              </g>
+            </g>
+          </svg>
+        </button>
+      </div>
+    )}
+  </div>
+  <div className="selected-asset">
+    {showFocusedView && focusedNode ? (
+      editMode ? (
+        <input
+          type="text"
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          onKeyPress={handleEditSave}
+          className="edit-input"
+          autoFocus
+        />
+      ) : (
+        <FocusedNodeView node={focusedNode.node} parent={focusedNode.parent} />
+      )
+    ) : (
+      <p className="no-selection">No asset selected</p>
+    )}
+  </div>
+  {showFocusedView && focusedNode && (
+    <div className="signals-container">
+      <div className="signals-header">
+        <div>
+          <span>⚡ Signals</span>
+          <span className="signals-count">{signals.length}</span>
+        </div>
+        <div className="signals-actions">
+          <button onClick={toggleShowSignals}>
+            {showSignals ? 'Hide Signals' : 'Show Signals'}
+          </button>
+          <button onClick={() => setShowAddSignalModal(true)}>+ Add Signal</button>
+        </div>
+      </div>
+      {loadingSignals ? (
+        <p>Loading signals...</p>
+      ) : showSignals && signals.length > 0 ? (
+        signals.map((signal) => (
+          <div key={signal.id || signal.signalId || signal.SignalId} className="signal-item">
+            <div className="signal-title">
+              {signal.signalName || signal.SignalName}
+              <span className="signal-type">{signal.signalType || signal.SignalType}</span>
             </div>
-            <button onClick={handleDownload} className="download-button">
-              <b>Download JSON</b>
-            </button>
-            <div className="asset-action-container">
-              <input 
-                type="text" 
-                placeholder="Asset Name" 
-                className="asset-input" 
-                value={addName}
-                onChange={(e) => setAddName(e.target.value)} 
-              />
-              <SuggestionInput
-                placeholder="Parent Name"
-                value={addParent}
-                onChange={handleParentInput}
-                suggestions={parentSuggestions}
-                onSuggestionClick={(suggestion) => {
-                  setAddParent(suggestion);
-                  setParentSuggestions([]);
-                }}
-                className="asset-input"
-              />
-              <button onClick={handleAdd} className="asset-action-button">ADD</button>
+            <div className="signal-description">
+              {signal.description || signal.Description || 'No description'}
             </div>
-            <div className="asset-action-container">
-              <SuggestionInput
-                placeholder="Asset Name to remove"
-                value={removeName}
-                onChange={handleRemoveInput}
-                suggestions={removeSuggestions}
-                onSuggestionClick={(suggestion) => {
-                  setRemoveName(suggestion);
-                  setRemoveSuggestions([]);
-                }}
-                className="asset-input"
-              />
-              <button onClick={handleRemoveClick} className="asset-action-button remove">REMOVE</button>
+            <div className="signal-actions">
+              <button
+                className="signal-button edit"
+                aria-label="Edit Signal"
+                title="Edit Signal"
+                onClick={() => handleEditSignalClick(signal)}
+              >
+                <svg height="16" viewBox="0 0 24 24" width="16" fill="currentColor">
+                  <path d="M14.06 9.02l.92.92L12 13.92 11.08 13 14.06 9.02zM17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.04 0-1.43L18.36 3.28c-.19-.19-.45-.28-.7-.28zM2 17.25V21h3.75l11.06-11.06-3.75-3.75L2 17.25z"/>
+                </svg>
+              </button>
+              <button
+                className="signal-button delete"
+                aria-label="Delete Signal"
+                title="Delete Signal"
+                onClick={() => handleRemoveSignal(signal.id || signal.signalId || signal.SignalId)}
+              >
+                <svg className="trash-svg" viewBox="0 -10 64 74" xmlns="http://www.w3.org/2000/svg">
+            <g id="trash-can">
+              <rect x="16" y="24" width="32" height="30" rx="3" ry="3" fill="#e74c3c"></rect>
+              <g transform-origin="12 18" id="lid-group">
+                <rect x="12" y="12" width="40" height="6" rx="2" ry="2" fill="#c0392b"></rect>
+                <rect x="26" y="8" width="12" height="4" rx="2" ry="2" fill="#c0392b"></rect>
+              </g>
+            </g>
+          </svg>
+              </button>
+            
+            </div>
+          </div>
+        ))
+      ) : (
+        <p></p>
+      )}
+    </div>
+  )}
+</div>
+      </div>
+
+      {showAddSignalModal && (
+  <div className="signal-modal-overlay">
+    <div className="signal-modal" role="dialog" aria-modal="true" aria-labelledby="addSignalTitle">
+      <h3 id="addSignalTitle">{editSignal ? 'Edit Signal' : 'Add New Signal'}</h3>
+      <label htmlFor="signalName">Signal Name</label>
+      <input
+        type="text"
+        id="signalName"
+        name="signalName"
+        placeholder="Enter signal name"
+        value={signalForm.signalName}
+        onChange={handleSignalInputChange}
+        autoFocus
+      />
+
+      <label htmlFor="signalType">Signal Type</label>
+      <select
+        id="signalType"
+        name="signalType"
+        value={signalForm.signalType}
+        onChange={handleSignalInputChange}
+      >
+        <option value="Integer">Integer</option>
+        <option value="Real">Real</option>
+        {/* Add more types if needed */}
+      </select>
+
+      <label htmlFor="signalDescription">Description</label>
+      <textarea
+        id="signalDescription"
+        name="description"
+        placeholder="Enter signal description (optional)"
+        value={signalForm.description}
+        onChange={handleSignalInputChange}
+      />
+
+      {signalError && <div className="modal-error">{signalError}</div>}
+
+      <div className="modal-actions">
+        <button
+          className="modal-btn confirm"
+          onClick={editSignal ? handleUpdateSignal : handleAddSignal}
+        >
+          {editSignal ? 'Update Signal' : 'Add Signal'}
+        </button>
+        <button className="modal-btn cancel" onClick={handleModalCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+      {showAddModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Add New Root Asset</h3>
+            <input
+              type="text"
+              placeholder="Enter asset name..."
+              value={newAssetName}
+              onChange={(e) => setNewAssetName(e.target.value)}
+              className="modal-input"
+            />
+            {addError && <div className="modal-error">{addError}</div>}
+            <div className="modal-actions">
+              <button className="modal-btn confirm" onClick={handleRootAdd}>
+                Add
+              </button>
+              <button className="modal-btn cancel" onClick={handleAddModalCancel}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>
-      </div>
-       {showRemoveModal && (
-        <RemoveModal 
-          pendingRemoveName={pendingRemoveName} 
-          onConfirm={handleRemoveConfirm} 
-          onCancel={handleRemoveCancel} 
-        />
+      )}
+
+      {showAddChildModal && focusedNode && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Add Child to {focusedNode.node.name}</h3>
+            <input
+              type="text"
+              placeholder="Enter child asset name..."
+              value={childName}
+              onChange={(e) => setChildName(e.target.value)}
+              className="modal-input"
+            />
+            {childAddError && <div className="modal-error">{childAddError}</div>}
+            <div className="modal-actions">
+              <button className="modal-btn confirm" onClick={handleAddChild}>
+                Add
+              </button>
+              <button className="modal-btn cancel" onClick={handleAddChildModalCancel}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Confirm Deletion</h3>
+            <p>Do you really want to delete Asset {focusedNode?.node.name || ''}?</p>
+            <div className="modal-actions">
+              <button className="modal-btn confirm" onClick={handleDeleteConfirm}>
+                Delete
+              </button>
+              <button className="modal-btn cancel" onClick={handleDeleteCancel}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

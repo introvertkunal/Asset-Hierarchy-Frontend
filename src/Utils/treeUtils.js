@@ -1,70 +1,61 @@
-export const filterTree = (tree, searchText) => {
-  if (!tree) return null;
-  
-  if (Array.isArray(tree)) {
-    const filteredNodes = tree
-      .map(node => filterTree(node, searchText))
-      .filter(node => node !== null);
-    return filteredNodes.length > 0 ? filteredNodes : null;
-  }
-
-  const newNode = { ...tree };
-  const matches = newNode.name.toLowerCase().includes(searchText.toLowerCase());
-  
-  if (matches) {
-    return newNode;
-  }
-  
-  if (newNode.children) {
-    const filteredChildren = newNode.children
-      .map(child => filterTree(child, searchText))
-      .filter(child => child !== null);
-      
-    if (filteredChildren.length > 0) {
-      // If any children match, return node with matching children
-      newNode.children = filteredChildren;
-      return newNode;
+// Utils/treeUtils.js
+export const buildAssetMap = (tree) => {
+  const map = new Map();
+  const traverse = (nodes) => {
+    if (!nodes) return;
+    if (Array.isArray(nodes)) {
+      nodes.forEach((node) => {
+        map.set(node.id, node.name);
+        traverse(node.children);
+      });
+    } else {
+      map.set(nodes.id, nodes.name);
+      traverse(nodes.children);
     }
-  }
-  
-  return null;
+  };
+  traverse(tree);
+  return map;
 };
 
-  export const buildAssetMap = (node, map = new Map()) => {
-    if (!node) return map;
-    
-    if (Array.isArray(node)) {
-      node.forEach(n => buildAssetMap(n, map));
-      return map;
+export const filterTree = (tree, searchTerm) => {
+  const lowerTerm = searchTerm.toLowerCase();
+  const filterNode = (node) => {
+    const matches = node.name.toLowerCase().includes(lowerTerm);
+    const filteredChildren = node.children ? node.children.map(filterNode).filter(Boolean) : [];
+    if (matches || filteredChildren.length > 0) {
+      return {
+        id: node.id,
+        name: node.name,
+        children: filteredChildren,
+      };
     }
-
-    map.set(node.name.toLowerCase(), node.name);
-    if (node.children) {
-      node.children.forEach(child => buildAssetMap(child, map));
-    }
-    return map;
-  };
-
-export const findNodeAndParent = (tree, nodeName, parent = null) => {
-    if (Array.isArray(tree)) {
-      for (const node of tree) {
-        const result = findNodeAndParent(node, nodeName, null);
-        if (result) return result;
-      }
-      return null;
-    }
-
-    if (tree.name === nodeName) {
-      return { node: tree, parent };
-    }
-
-    if (tree.children) {
-      for (const child of tree.children) {
-        const result = findNodeAndParent(child, nodeName, tree);
-        if (result) return result;
-      }
-    }
-
     return null;
   };
 
+  if (Array.isArray(tree)) {
+    return tree.map(filterNode).filter(Boolean);
+  }
+  return filterNode(tree);
+};
+
+export const findNodeAndParent = (tree, id) => {
+  const findNode = (nodes, parent = null) => {
+    if (!nodes) return null;
+    if (Array.isArray(nodes)) {
+      for (const node of nodes) {
+        if (node.id === id) {
+          return { node, parent };
+        }
+        const result = findNode(node.children, node);
+        if (result) return result;
+      }
+    } else {
+      if (nodes.id === id) {
+        return { node: nodes, parent };
+      }
+      return findNode(nodes.children, nodes);
+    }
+    return null;
+  };
+  return findNode(tree);
+};
