@@ -28,18 +28,65 @@
   z-index: 0;
 }
 
+.header-container {
+  display: flex;
+  flex-direction: column;  /* stack title + count vertically */
+  justify-content: center;
+  align-items: center;     /* center horizontally */
+  position: relative;      /* for absolute logout button if needed */
+  margin-bottom: 1rem;
+  width: 100%;
+}
+
+
 /* Title styling */
 .app-title {
   text-align: center;
   color: #ffffff;
   font-size: 3rem;
   font-weight: 700;
-  margin-bottom: 2.5rem;
+  margin: 0; /* Remove default margin to prevent shifting */
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   letter-spacing: -0.02em;
   position: relative;
   z-index: 1;
 }
+
+
+/* Asset count paragraph styling */
+.asset-count {
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 400;
+  margin: 0.5rem 0 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  letter-spacing: 0.02em;
+  position: relative;
+  z-index: 1;
+}
+
+/* Logout button styling */
+.logout-button {
+  position: fixed;   /* stick relative to the viewport */
+  top: 16px;         /* distance from top */
+  left: 16px;        /* distance from left */
+  
+  padding: 8px 16px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+  z-index: 9999;     /* stays above everything */
+}
+
+.logout-button:hover {
+  background: #dc2626;
+}
+
 
 /* Main content layout */
 .main-content {
@@ -122,11 +169,9 @@
 
 .no-selection {
   font-style: italic;
-  color: #718096; /* soft gray */
+  color: #718096;
   margin-top: 10px;
 }
-
-
 
 /* Asset action container */
 .asset-action-container {
@@ -207,13 +252,14 @@
   transform: translateY(0);
 }
 
-
-
 /* Modal styling */
 .modal-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.4);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -224,7 +270,7 @@
   background: #fff;
   border-radius: 8px;
   padding: 2rem 2.5rem;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   min-width: 320px;
   max-width: 90vw;
   text-align: center;
@@ -232,8 +278,14 @@
 }
 
 @keyframes modalIn {
-  from { transform: scale(0.8); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .modal-actions {
@@ -319,25 +371,32 @@
   .app-container {
     padding: 15px;
   }
-  
+
   .app-title {
     font-size: 2.25rem;
     margin-bottom: 2rem;
   }
-  
+
   .main-content {
     flex-direction: column;
     gap: 20px;
   }
-  
+
   .left-panel,
   .right-panel {
     min-width: unset;
     padding: 20px;
   }
-  
+
   .panel-title {
     font-size: 1.5rem;
+  }
+
+  .logout-button {
+    top: 10px;
+    right: 10px;
+    padding: 6px 12px;
+    font-size: 12px;
   }
 }
 

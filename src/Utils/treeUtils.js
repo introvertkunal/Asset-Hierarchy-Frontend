@@ -59,3 +59,26 @@ export const findNodeAndParent = (tree, id) => {
   };
   return findNode(tree);
 };
+
+
+export const countAssets = (treeData) => {
+  if (!treeData) return 0;
+
+  let count = 0;
+
+
+  const countNodes = (node) => {
+    count += 1; 
+    if (node.children && node.children.length > 0) {
+      node.children.forEach((child) => countNodes(child));
+    }
+  };
+
+  if (Array.isArray(treeData)) {
+    treeData.forEach((node) => countNodes(node));
+  } else {
+    countNodes(treeData);
+  }
+
+  return count;
+};
