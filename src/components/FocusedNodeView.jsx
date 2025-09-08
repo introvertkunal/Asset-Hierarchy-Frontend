@@ -16,11 +16,11 @@ function FocusedNodeView({ node, parent }) {
       {node.children && node.children.length > 0 && (
         <div className="focused-item child">
           <strong>Child Asset:</strong>
-          <ul>
+          <ol>
             {node.children.map((child, idx) => (
               <li key={idx}>{child.name} (ID: {child.id})</li>
             ))}
-          </ul>
+          </ol>
         </div>
       )}
       {/* {node.signals && node.signals.length > 0 && (

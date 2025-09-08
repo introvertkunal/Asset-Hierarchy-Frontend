@@ -12,8 +12,7 @@ const ProtectedRoute = ({ children }) => {
 const Root = () => {
   const handleLogin = (token, username, role) => {
     localStorage.setItem('token', token);
-    localStorage.setItem('username', username);
-    localStorage.setItem('role', role);
+ 
     // After login → redirect to "/"
     window.location.href = "/";
   };

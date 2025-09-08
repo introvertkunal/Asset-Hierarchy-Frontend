@@ -17,19 +17,21 @@ const AuthPage = ({ onLogin }) => {
   const validateForm = () => {
     const newErrors = {};
     
+    // Username validation
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
+    } else if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(formData.username)) {
+      newErrors.username = 'Username must start with a letter and contain only letters, numbers, and underscores';
     } else if (formData.username.length > 30) {
       newErrors.username = 'Username must be 30 characters or less';
-    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      newErrors.username = 'Username can only contain letters, numbers, and underscores';
     }
 
+    // Email validation (only for registration)
     if (!isLogin) {
       if (!formData.email.trim()) {
         newErrors.email = 'Email is required';
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-        newErrors.email = 'Please enter a valid email address';
+      } else if (!/^[a-zA-Z][^\s@]*@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = 'Email must start with a letter and be a valid email address';
       }
     }
 
@@ -67,6 +69,7 @@ const AuthPage = ({ onLogin }) => {
 
     setIsLoading(true);
     setMessage('');
+    setErrors({});
 
     try {
       const endpoint = isLogin ? 'login' : 'register';
@@ -79,15 +82,17 @@ const AuthPage = ({ onLogin }) => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
-      const data = await response.text();
+      const contentType = response.headers.get('content-type');
+      let data;
 
       if (response.ok) {
+        // For successful responses, assume JSON (e.g., login token)
+        data = await response.json();
         if (isLogin) {
-          const jsonData = JSON.parse(data);
-          onLogin(jsonData.token, formData.username, jsonData.role || 'user');
+          onLogin(data.token, formData.username, data.role || 'user');
           setMessage('Login successful!');
           navigate('/');
         } else {
@@ -96,7 +101,36 @@ const AuthPage = ({ onLogin }) => {
           setFormData({ username: '', email: '', password: '' });
         }
       } else {
-        setMessage(data || 'An error occurred');
+        // For error responses, check if it's text/plain (e.g., Unauthorized messages)
+        if (contentType && contentType.includes('application/json')) {
+          data = await response.json();
+          if (Array.isArray(data)) {
+            const newErrors = {};
+            data.forEach(error => {
+              if (error.code === 'DuplicateUserName') {
+                newErrors.username = `${formData.username} is already taken.`;
+              }
+              if (error.code === 'DuplicateEmail') {
+                newErrors.email = `${formData.email} is already taken.`;
+              }
+            });
+            setErrors(newErrors);
+          } else if (data.message) {
+            setMessage(data.message);
+          }
+        } else {
+          // Handle plain text error messages (e.g., "Invalid Username." or "Invalid Password.")
+          data = await response.text();
+          const newErrors = {};
+          if (data === 'Invalid Username.') {
+            newErrors.username = 'Invalid Username.';
+          } else if (data === 'Invalid Password.') {
+            newErrors.password = 'Invalid Password.';
+          } else {
+            setMessage(data);
+          }
+          setErrors(newErrors);
+        }
       }
     } catch (error) {
       setMessage('Network error. Please try again.');
@@ -137,21 +171,20 @@ const AuthPage = ({ onLogin }) => {
           justifyContent: 'center',
           marginBottom: '30px'
         }}>
-         <div
-  style={{
-    width: '60px',
-    height: '60px',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden' // makes sure image doesn't overflow outside circle
-  }}
->
- <img src={settingsIcon} alt="icon" style={{ width: '60%', height: '60%', objectFit: 'contain' }} />
-</div>
-          
+          <div
+            style={{
+              width: '60px',
+              height: '60px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden'
+            }}
+          >
+            <img src={settingsIcon} alt="icon" style={{ width: '60%', height: '60%', objectFit: 'contain' }} />
+          </div>
         </div>
         <div style={{ textAlign: 'center', marginBottom: '30px' }}>
           <h1 style={{

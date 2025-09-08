@@ -1,52 +1,98 @@
-/* signals.css */
-
 .signals-container {
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
   margin-top: 1rem;
-  background: #fefefe;
-  box-shadow: 0 0 10px rgb(0 0 0 / 0.05);
+  background: #ffffff;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  
 }
 
 .signals-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  font-weight: 500;
+  font-size: 1.125rem;
+  color: #1f2937;
+}
+
+.signals-header > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.signals-header span:first-child {
   font-weight: 600;
-  font-size: 1.1rem;
+  color: #374151;
+  font-size: 1.125rem;
 }
 
 .signals-count {
-  background: #e0e7ff;
-  color: #3b49df;
-  padding: 0 8px;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-left: 0.5rem;
-  min-width: 24px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
 }
 
-.signals-actions button {
-  background: #3b82f6;
-  border: none;
-  color: white;
-  padding: 0.3rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
+.signals-actions {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  transition: background 0.3s ease;
+  gap: 0.75rem;
 }
 
-.signals-actions button:hover {
+.signals-actions button {
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: all 0.2s ease;
+  line-height: 1.25;
+}
+
+/* Hide/Show Signals button */
+.signals-actions button:first-child {
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.signals-actions button:first-child:hover {
+  background: #f9fafb;
+  color: #374151;
+  border-color: #9ca3af;
+}
+
+/* Add Signal button */
+.signals-actions button:last-child {
+  background: #3b82f6;
+  color: white;
+  border: 1px solid #3b82f6;
+}
+
+.signals-actions button:last-child:hover {
   background: #2563eb;
+  border-color: #2563eb;
+}
+
+.signals-actions button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
 }
 
 .signal-item {
