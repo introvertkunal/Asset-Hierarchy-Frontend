@@ -49,6 +49,8 @@ function App({ onLogout }) {
   const [showReorderModal, setShowReorderModal] = useState(false);
   const [userName, setUserName] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [showDeleteSignalModal, setShowDeleteSignalModal] = useState(false); // New state for signal deletion modal
+  const [signalToDelete, setSignalToDelete] = useState(null); // New state to track signal to delete
 
   const validNameRegex = /^[a-zA-Z0-9 _]+$/;
 
@@ -57,9 +59,8 @@ function App({ onLogout }) {
     const connection = new signalR.HubConnectionBuilder()
       .withUrl('https://localhost:7036/notificationHub', {
         accessTokenFactory: () => localStorage.getItem('token'),
-         withCredentials: true
+        withCredentials: true
       })
-      
       .configureLogging(signalR.LogLevel.Information)
       .withAutomaticReconnect()
       .build();
@@ -205,20 +206,35 @@ function App({ onLogout }) {
     setSignalError('');
   };
 
-  // Remove signal
-  const handleRemoveSignal = async (signalId) => {
+  // Remove signal with modal confirmation
+  const handleRemoveSignal = (signalId) => {
     if (!isAdmin) {
       setActionMessage('Only Admins can delete signals');
       return;
     }
-    if (!window.confirm('Are you sure you want to delete this signal?')) return;
+    setSignalToDelete(signalId);
+    setShowDeleteSignalModal(true);
+  };
+
+  const handleDeleteSignalConfirm = async () => {
+    if (!isAdmin || !signalToDelete) return;
     try {
-      const msg = await removeSignal(signalId);
+      const msg = await removeSignal(signalToDelete);
       setActionMessage(msg);
+      setShowDeleteSignalModal(false);
+      setSignalToDelete(null);
       loadSignals();
     } catch (err) {
       setActionMessage(err.message);
+      setShowDeleteSignalModal(false);
+      setSignalToDelete(null);
     }
+  };
+
+  const handleDeleteSignalCancel = () => {
+    setShowDeleteSignalModal(false);
+    setSignalToDelete(null);
+    setActionMessage('Signal deletion cancelled.');
   };
 
   const handleEditSignalClick = (signal) => {
@@ -1029,6 +1045,23 @@ function App({ onLogout }) {
                   Delete
                 </button>
                 <button className="modal-btn cancel" onClick={handleDeleteCancel}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showDeleteSignalModal && isAdmin && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <h3>Confirm Signal Deletion</h3>
+              <p>Do you really want to delete this signal?</p>
+              <div className="modal-actions">
+                <button className="modal-btn confirm" onClick={handleDeleteSignalConfirm}>
+                  Delete
+                </button>
+                <button className="modal-btn cancel" onClick={handleDeleteSignalCancel}>
                   Cancel
                 </button>
               </div>

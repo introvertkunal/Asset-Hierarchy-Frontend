@@ -12,6 +12,7 @@ const AuthPage = ({ onLogin }) => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const validateForm = () => {
@@ -89,7 +90,6 @@ const AuthPage = ({ onLogin }) => {
       let data;
 
       if (response.ok) {
-        // For successful responses, assume JSON (e.g., login token)
         data = await response.json();
         if (isLogin) {
           onLogin(data.token, formData.username, data.role || 'user');
@@ -101,7 +101,6 @@ const AuthPage = ({ onLogin }) => {
           setFormData({ username: '', email: '', password: '' });
         }
       } else {
-        // For error responses, check if it's text/plain (e.g., Unauthorized messages)
         if (contentType && contentType.includes('application/json')) {
           data = await response.json();
           if (Array.isArray(data)) {
@@ -119,7 +118,6 @@ const AuthPage = ({ onLogin }) => {
             setMessage(data.message);
           }
         } else {
-          // Handle plain text error messages (e.g., "Invalid Username." or "Invalid Password.")
           data = await response.text();
           const newErrors = {};
           if (data === 'Invalid Username.') {
@@ -149,27 +147,37 @@ const AuthPage = ({ onLogin }) => {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100vh',
+      width: '100vw',
+      margin: 0,
+      padding: 0,
       background: 'linear-gradient(135deg, #0f3d3e 0%, #2a1a4a 100%)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      overflow: 'hidden'
     }}>
       <div style={{
-        background: 'rgba(40, 44, 52, 0.95)',
-        backdropFilter: 'blur(20px)',
-        borderRadius: '20px',
-        padding: '40px',
-        width: '100%',
-        maxWidth: '400px',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
-        border: '1px solid rgba(255, 255, 255, 0.1)'
-      }}>
+  background: 'rgba(40, 44, 52, 0.95)',
+  backdropFilter: 'blur(20px)',
+  borderRadius: '20px',
+  padding: '30px',
+  width: '100%',
+  maxWidth: '400px',
+  minHeight: '520px', 
+  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
+  border: '1px solid rgba(255, 255, 255, 0.1)',
+  overflow: 'hidden'  
+}}>
+
         <div style={{
           display: 'flex',
           justifyContent: 'center',
-          marginBottom: '30px'
+          marginBottom: '20px'
         }}>
           <div
             style={{
@@ -186,7 +194,7 @@ const AuthPage = ({ onLogin }) => {
             <img src={settingsIcon} alt="icon" style={{ width: '60%', height: '60%', objectFit: 'contain' }} />
           </div>
         </div>
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <h1 style={{
             color: 'white',
             fontSize: '28px',
@@ -208,7 +216,7 @@ const AuthPage = ({ onLogin }) => {
           background: 'rgba(0, 0, 0, 0.3)',
           borderRadius: '12px',
           padding: '4px',
-          marginBottom: '30px'
+          marginBottom: '20px'
         }}>
           <button
             type="button"
@@ -361,7 +369,7 @@ const AuthPage = ({ onLogin }) => {
               )}
             </div>
           )}
-          <div style={{ marginBottom: '30px' }}>
+          <div style={{ marginBottom: '20px' }}>
             <label style={{
               display: 'block',
               color: 'white',
@@ -389,14 +397,14 @@ const AuthPage = ({ onLogin }) => {
                 <path d="M18 8H17V6C17 3.24 14.76 1 12 1S7 3.24 7 6V8H6C4.9 8 4 8.9 4 10V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V10C20 8.9 19.1 8 18 8ZM9 6C9 4.34 10.34 3 12 3S15 4.34 15 6V8H9V6Z"/>
               </svg>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder={isLogin ? "Enter your password" : "Create a strong password"}
                 style={{
                   width: '100%',
-                  padding: '16px 16px 16px 50px',
+                  padding: '16px 50px 16px 50px',
                   background: 'rgba(0, 0, 0, 0.3)',
                   border: errors.password ? '2px solid #ef4444' : '2px solid transparent',
                   borderRadius: '12px',
@@ -409,6 +417,36 @@ const AuthPage = ({ onLogin }) => {
                 onFocus={(e) => e.target.style.borderColor = '#667eea'}
                 onBlur={(e) => !errors.password && (e.target.style.borderColor = 'transparent')}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '16px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  fill="rgba(255, 255, 255, 0.5)"
+                  viewBox="0 0 24 24"
+                >
+                  {showPassword ? (
+                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                  ) : (
+                    <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-4 .7l2.17 2.17C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3-.17 0-.33.02-.48.04z"/>
+                  )}
+                </svg>
+              </button>
             </div>
             {errors.password && (
               <p style={{ color: '#ef4444', fontSize: '12px', margin: '6px 0 0 0' }}>
