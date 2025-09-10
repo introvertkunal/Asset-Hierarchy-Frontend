@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import * as signalR from '@microsoft/signalr';
+import { useSelector, useDispatch } from 'react-redux';
+import { clearUser } from './store/authSlice'; // Adjust path based on your project structure
 import './App.css';
 import TreeNode from './components/TreeNode.jsx';
 import FilteredTreeNode from './components/FilteredTreeNode.jsx';
@@ -12,12 +14,15 @@ import './panels/searchbar.css';
 import './panels/leftpaneltree.css';
 import './panels/signals.css';
 import { addChildNode, addRoot, downloadFile, fetchHierarchy, removeAsset, searchAsset, updateAsset, reorderAsset, replaceFile } from './services/api.js';
-import Fuse from 'fuse.js';
 import { fetchSignalsByAssetId, addSignal, removeSignal, updateSignal } from './services/api.js';
+import Fuse from 'fuse.js';
 
-function App({ onLogout }) {
+function App() {
+  const dispatch = useDispatch();
+  const { userName, roles } = useSelector((state) => state.auth);
+
   // Essential states
-  const [refreshKey, setRefreshKey] = useState(0);
+   const [refreshKey, setRefreshKey] = useState(0);
   const [treeData, setTreeData] = useState(null);
   const [searchName, setSearchName] = useState('');
   const [actionMessage, setActionMessage] = useMessageTimeout('');
@@ -47,19 +52,20 @@ function App({ onLogout }) {
   const [draggedNode, setDraggedNode] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [showReorderModal, setShowReorderModal] = useState(false);
-  const [userName, setUserName] = useState(null);
+
   const [notifications, setNotifications] = useState([]);
   const [showDeleteSignalModal, setShowDeleteSignalModal] = useState(false); // New state for signal deletion modal
-  const [signalToDelete, setSignalToDelete] = useState(null); // New state to track signal to delete
-
+  const [signalToDelete, setSignalToDelete] = useState(null);
   const validNameRegex = /^[a-zA-Z0-9 _]+$/;
+
+  // Check if user is Admin
+  const isAdmin = roles.includes('Admin');
 
   // SignalR connection setup
   useEffect(() => {
     const connection = new signalR.HubConnectionBuilder()
       .withUrl('https://localhost:7036/notificationHub', {
-        accessTokenFactory: () => localStorage.getItem('token'),
-        withCredentials: true
+        withCredentials: true,
       })
       .configureLogging(signalR.LogLevel.Information)
       .withAutomaticReconnect()
@@ -91,30 +97,6 @@ function App({ onLogout }) {
     }
   }, [notifications]);
 
-  // Get user role from JWT
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUserRole(payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']);
-        setUserName(
-          payload['unique_name'] ||
-          payload['name'] ||
-          payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] ||
-          'Unknown User'
-        );
-      } catch (error) {
-        console.error('Error parsing JWT:', error);
-        setUserRole(null);
-        setUserName(null);
-      }
-    }
-  }, []);
-
-  // Check if user is Admin
-  const isAdmin = userRole === 'Admin';
-
   // Load initial data
   const loadData = async () => {
     try {
@@ -129,6 +111,22 @@ function App({ onLogout }) {
   useEffect(() => {
     loadData();
   }, [refreshKey]);
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+    const response =   await fetch('https://localhost:7036/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      console.log('Logout response:', response.json());
+      dispatch(clearUser());
+      window.location.href = '/login';
+    } catch (err) {
+      setActionMessage(err.message);
+    }
+  };
 
   const loadSignals = useCallback(async () => {
     if (!focusedNode || !focusedNode.node?.id) {
@@ -151,13 +149,13 @@ function App({ onLogout }) {
 
   // Toggle show/hide signals
   const toggleShowSignals = () => {
-    setShowSignals(prev => !prev);
+    setShowSignals((prev) => !prev);
   };
 
-  // Handle input change in add/edit modal
+  // Handle input change in add/edit signal modal
   const handleSignalInputChange = (e) => {
     const { name, value } = e.target;
-    setSignalForm(prev => ({ ...prev, [name]: value }));
+    setSignalForm((prev) => ({ ...prev, [name]: value }));
   };
 
   // Validate Signal form
@@ -265,7 +263,7 @@ function App({ onLogout }) {
         signalName: signalForm.signalName.trim(),
         signalType: signalForm.signalType,
         description: signalForm.description.trim(),
-        assetId: focusedNode.node.id
+        assetId: focusedNode.node.id,
       };
 
       const msg = await updateSignal(
@@ -563,16 +561,16 @@ function App({ onLogout }) {
     try {
       const text = await file.text();
       if (!text.trim()) {
-        setActionMessage("File is empty");
-        setTimeout(() => {window.location.reload();}, 1000);
+        setActionMessage('File is empty');
+        setTimeout(() => { window.location.reload(); }, 1000);
         return;
       }
       const msg = await replaceFile(file);
       setActionMessage(msg);
-      setTimeout(() => {window.location.reload();}, 1000);
+      setTimeout(() => { window.location.reload(); }, 1000);
     } catch (err) {
       setActionMessage(err.message);
-      setTimeout(() => {window.location.reload();}, 1000);
+      setTimeout(() => { window.location.reload(); }, 1000);
     }
   };
 
@@ -628,8 +626,8 @@ function App({ onLogout }) {
       <div className="app-container">
         <div className="header-container">
           <div className="header-left">
-            <button onClick={onLogout} className="logout-button">Logout</button>
-            <p className="userName">{userName}</p>
+            <button onClick={handleLogout} className="logout-button">Logout</button>
+            <p className="userName">{userName || 'Unknown User'}</p>
           </div>
           <div className="json-buttons">
             {isAdmin && (
@@ -939,6 +937,7 @@ function App({ onLogout }) {
           ))}
         </div>
 
+        {/* Add Signal Modal */}
         {showAddSignalModal && isAdmin && (
           <div className="signal-modal-overlay">
             <div className="signal-modal" role="dialog" aria-modal="true" aria-labelledby="addSignalTitle">
@@ -987,6 +986,7 @@ function App({ onLogout }) {
           </div>
         )}
 
+        {/* Add Root Asset Modal */}
         {showAddModal && isAdmin && (
           <div className="modal-overlay">
             <div className="modal">
@@ -1011,6 +1011,7 @@ function App({ onLogout }) {
           </div>
         )}
 
+        {/* Add Child Asset Modal */}
         {showAddChildModal && isAdmin && focusedNode && (
           <div className="modal-overlay">
             <div className="modal">
@@ -1035,6 +1036,7 @@ function App({ onLogout }) {
           </div>
         )}
 
+        {/* Delete Asset Modal */}
         {showDeleteModal && isAdmin && (
           <div className="modal-overlay">
             <div className="modal">
@@ -1052,6 +1054,7 @@ function App({ onLogout }) {
           </div>
         )}
 
+        {/* Delete Signal Modal */}
         {showDeleteSignalModal && isAdmin && (
           <div className="modal-overlay">
             <div className="modal">
@@ -1069,6 +1072,7 @@ function App({ onLogout }) {
           </div>
         )}
 
+        {/* Reorder Modal */}
         {showReorderModal && isAdmin && draggedNode && dropTarget && (
           <div className="modal-overlay">
             <div className="modal">

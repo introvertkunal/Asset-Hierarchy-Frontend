@@ -1,34 +1,83 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Provider, useDispatch } from 'react-redux';
+import { store } from './store';
+import { setUser, clearUser, setLoading } from './store/authSlice';
+import ProtectedRoute from './ProtectedRoute.jsx';
 import AuthPage from './AuthPage.jsx';
 import App from './App.jsx';
 
-const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" />;
-};
-
 const Root = () => {
-  const handleLogin = (token, username, role) => {
-    localStorage.setItem('token', token);
- 
-    // After login → redirect to "/"
-    window.location.href = "/";
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch('https://localhost:7036/api/auth/me', {
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          dispatch(setUser({ userName: data.userName, roles: data.roles }));
+         
+        } else {
+          dispatch(clearUser());
+        }
+      } catch (err) {
+        console.error('Error fetching current user:', err);
+        dispatch(clearUser());
+      }
+    };
+
+    dispatch(setLoading(true));
+    fetchCurrentUser();
+  }, [dispatch]);
+
+  const handleLogin = async (username, password) => {
+    try {
+      const response = await fetch('https://localhost:7036/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
+      const data = await response.json();
+      dispatch(setUser({ userName: data.userName, roles: data.roles }));
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Login error:', err);
+      throw err;
+    }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('role');
-    window.location.href = "/login";
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('https://localhost:7036/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      console.log('Logout response:', response.json());
+      dispatch(clearUser());
+      window.location.href = '/login';
+    } catch (err) {
+      console.error('Logout error:', err);
+      dispatch(clearUser());
+      window.location.href = '/login';
+    }
   };
 
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<AuthPage onLogin={handleLogin} />} />
-
         <Route
           path="/"
           element={
@@ -37,13 +86,15 @@ const Root = () => {
             </ProtectedRoute>
           }
         />
-
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
   );
 };
 
-
 const root = createRoot(document.getElementById('root'));
-root.render(<Root />);
+root.render(
+  <Provider store={store}>
+    <Root />
+  </Provider>
+);
