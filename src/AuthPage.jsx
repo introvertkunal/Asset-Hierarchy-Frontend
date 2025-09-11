@@ -5,6 +5,13 @@ import { setUser } from './store/authSlice';
 import { FcGoogle } from 'react-icons/fc';
 import { FaGithub } from 'react-icons/fa';
 import settingsIcon from './settings.png';
+import axios from 'axios';
+
+// Create Axios instance for API requests
+const api = axios.create({
+  baseURL: 'https://localhost:7036/api',
+  withCredentials: true, // Include cookies in requests
+});
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -22,33 +29,31 @@ const AuthPage = () => {
   const location = useLocation();
 
   // Handle OAuth callback
-useEffect(() => {
-  const handleOAuthCallback = async () => {
-    if (location.pathname === '/auth/callback') {
-      try {
-        // Call /me to get current user (cookie is already set by backend)
-        const response = await fetch('https://localhost:7036/api/auth/me', {
-          method: 'GET',
-          credentials: 'include',
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          dispatch(setUser({ userName: data.userName, roles: data.roles }));
-          navigate('/'); // ✅ Redirect home
-        } else {
+  useEffect(() => {
+    const handleOAuthCallback = async () => {
+      if (location.pathname === '/auth/callback') {
+        try {
+          const response = await api.get('/auth/me');
+          if (response.status === 200) {
+            dispatch(setUser({
+              userName: response.data.userName,
+              roles: response.data.roles,
+            }));
+            navigate('/');
+          } else {
+            navigate('/auth?error=external');
+            setMessage('External login failed. Please try again.');
+          }
+        } catch (error) {
+          console.error('OAuth callback error:', error);
           navigate('/auth?error=external');
+          setMessage('External login failed. Please try again.');
         }
-      } catch (error) {
-        console.error('OAuth callback error:', error);
-        navigate('/auth?error=external');
       }
-    }
-  };
+    };
 
-  handleOAuthCallback();
-}, [location, dispatch, navigate]);
-
+    handleOAuthCallback();
+  }, [location, dispatch, navigate]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -111,22 +116,14 @@ useEffect(() => {
         ? { userName: formData.username, password: formData.password }
         : { userName: formData.username, email: formData.email, password: formData.password };
 
-      const response = await fetch(`https://localhost:7036/api/auth/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-        credentials: 'include',
-      });
+      const response = await api.post(`/auth/${endpoint}`, payload);
 
-      const contentType = response.headers.get('content-type');
-      let data;
-
-      if (response.ok) {
+      if (response.status === 200) {
         if (endpoint === 'login') {
-          data = await response.json();
-          dispatch(setUser({ userName: data.userName, roles: data.roles }));
+          dispatch(setUser({
+            userName: response.data.userName,
+            roles: response.data.roles,
+          }));
           setMessage('Login successful!');
           navigate('/');
         } else {
@@ -134,39 +131,44 @@ useEffect(() => {
           setIsLogin(true);
           setFormData({ username: '', email: '', password: '' });
         }
-      } else {
-        if (contentType && contentType.includes('application/json')) {
-          data = await response.json();
-          if (Array.isArray(data)) {
+      }
+    } catch (error) {
+      const response = error.response;
+      if (response) {
+        if (response.status === 409) {
+          setMessage('Admin already logged in from another browser/device.');
+        } else if (response.status === 401) {
+          if (response.data === 'Invalid Username.') {
+            setErrors({ username: 'Invalid Username.' });
+          } else if (response.data === 'Invalid Password.') {
+            setErrors({ password: 'Invalid Password.' });
+          } else {
+            setMessage('Unauthorized. Please check your credentials.');
+          }
+        } else if (response.status === 400) {
+          if (Array.isArray(response.data)) {
             const newErrors = {};
-            data.forEach((error) => {
-              if (error.code === 'DuplicateUserName') {
+            response.data.forEach((err) => {
+              if (err.code === 'DuplicateUserName') {
                 newErrors.username = `${formData.username} is already taken.`;
               }
-              if (error.code === 'DuplicateEmail') {
+              if (err.code === 'DuplicateEmail') {
                 newErrors.email = `${formData.email} is already taken.`;
               }
             });
             setErrors(newErrors);
-          } else if (data.message) {
-            setMessage(data.message);
+          } else if (response.data?.message) {
+            setMessage(response.data.message);
+          } else {
+            setMessage('Invalid request. Please check your input.');
           }
         } else {
-          data = await response.text();
-          const newErrors = {};
-          if (data === 'Invalid Username.') {
-            newErrors.username = 'Invalid Username.';
-          } else if (data === 'Invalid Password.') {
-            newErrors.password = 'Invalid Password.';
-          } else {
-            setMessage(data);
-          }
-          setErrors(newErrors);
+          setMessage('An error occurred. Please try again.');
         }
+      } else {
+        setMessage('Network error. Please try again.');
+        console.error('Auth error:', error);
       }
-    } catch (error) {
-      setMessage('Network error. Please try again.');
-      console.error('Auth error:', error);
     } finally {
       setIsLoading(false);
     }

@@ -194,6 +194,7 @@ function App() {
       loadSignals();
     } catch (err) {
       setSignalError(err.message || 'Failed to add signal.');
+      console.log(err.message);
     }
   };
 
