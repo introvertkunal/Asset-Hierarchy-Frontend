@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { setUser } from './store/authSlice'; 
+import { setUser } from './store/authSlice';
+import { FcGoogle } from 'react-icons/fc';
+import { FaGithub } from 'react-icons/fa';
 import settingsIcon from './settings.png';
 
 const AuthPage = () => {
@@ -17,11 +19,40 @@ const AuthPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const location = useLocation();
+
+  // Handle OAuth callback
+useEffect(() => {
+  const handleOAuthCallback = async () => {
+    if (location.pathname === '/auth/callback') {
+      try {
+        // Call /me to get current user (cookie is already set by backend)
+        const response = await fetch('https://localhost:7036/api/auth/me', {
+          method: 'GET',
+          credentials: 'include',
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          dispatch(setUser({ userName: data.userName, roles: data.roles }));
+          navigate('/'); // ✅ Redirect home
+        } else {
+          navigate('/auth?error=external');
+        }
+      } catch (error) {
+        console.error('OAuth callback error:', error);
+        navigate('/auth?error=external');
+      }
+    }
+  };
+
+  handleOAuthCallback();
+}, [location, dispatch, navigate]);
+
 
   const validateForm = () => {
     const newErrors = {};
 
-    // Username validation
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
     } else if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(formData.username)) {
@@ -30,7 +61,6 @@ const AuthPage = () => {
       newErrors.username = 'Username must be 30 characters or less';
     }
 
-    // Email validation (only for registration)
     if (!isLogin) {
       if (!formData.email.trim()) {
         newErrors.email = 'Email is required';
@@ -95,7 +125,7 @@ const AuthPage = () => {
 
       if (response.ok) {
         if (endpoint === 'login') {
-          data = await response.json(); // Expecting { userName, roles }
+          data = await response.json();
           dispatch(setUser({ userName: data.userName, roles: data.roles }));
           setMessage('Login successful!');
           navigate('/');
@@ -140,6 +170,11 @@ const AuthPage = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleExternalLogin = (provider) => {
+    const redirectUrl = `${window.location.origin}/auth/callback`;
+    window.location.href = `https://localhost:7036/api/auth/externallogin?provider=${provider}&returnUrl=${encodeURIComponent(redirectUrl)}`;
   };
 
   const toggleAuthMode = () => {
@@ -264,7 +299,7 @@ const AuthPage = () => {
             Register
           </button>
         </div>
-        <div>
+        <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '20px' }}>
             <label
               style={{
@@ -461,7 +496,6 @@ const AuthPage = () => {
           <button
             type="submit"
             disabled={isLoading}
-            onClick={handleSubmit}
             style={{
               width: '100%',
               padding: '16px',
@@ -478,42 +512,87 @@ const AuthPage = () => {
           >
             {isLoading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
           </button>
-          {message && (
-            <div
-              style={{
-                padding: '12px',
-                borderRadius: '8px',
-                background: message.includes('successful') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                color: message.includes('successful') ? '#10b981' : '#ef4444',
-                fontSize: '14px',
-                textAlign: 'center',
-                marginBottom: '20px',
-                border: `1px solid ${message.includes('successful') ? '#10b981' : '#ef4444'}`,
-              }}
-            >
-              {message}
-            </div>
-          )}
-          <div style={{ textAlign: 'center' }}>
-            <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
-              {isLogin ? "Don't have an account? " : 'Already have an account? '}
-            </span>
-            <button
-              type="button"
-              onClick={toggleAuthMode}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#10b981',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
-              {isLogin ? 'Sign up' : 'Sign in'}
-            </button>
+        </form>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
+            Or {isLogin ? 'sign in' : 'sign up'} with
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '20px' }}>
+          <button
+            onClick={() => handleExternalLogin('Google')}
+            disabled={isLoading}
+            style={{
+              flex: 1,
+              padding: '12px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            <FcGoogle size={24} style={{ marginRight: '8px' }} />
+            <span style={{ color: 'white', fontSize: '14px', fontWeight: '500' }}>Google</span>
+          </button>
+          <button
+            onClick={() => handleExternalLogin('GitHub')}
+            disabled={isLoading}
+            style={{
+              flex: 1,
+              padding: '12px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            <FaGithub size={24} style={{ marginRight: '8px', color: 'white' }} />
+            <span style={{ color: 'white', fontSize: '14px', fontWeight: '500' }}>GitHub</span>
+          </button>
+        </div>
+        {message && (
+          <div
+            style={{
+              padding: '12px',
+              borderRadius: '8px',
+              background: message.includes('successful') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+              color: message.includes('successful') ? '#10b981' : '#ef4444',
+              fontSize: '14px',
+              textAlign: 'center',
+              marginBottom: '20px',
+              border: `1px solid ${message.includes('successful') ? '#10b981' : '#ef4444'}`,
+            }}
+          >
+            {message}
           </div>
+        )}
+        <div style={{ textAlign: 'center' }}>
+          <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
+            {isLogin ? "Don't have an account? " : 'Already have an account? '}
+          </span>
+          <button
+            type="button"
+            onClick={toggleAuthMode}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#10b981',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+            }}
+          >
+            {isLogin ? 'Sign up' : 'Sign in'}
+          </button>
         </div>
       </div>
     </div>

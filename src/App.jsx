@@ -396,34 +396,44 @@ function App() {
 
   // Child asset handling
   const handleAddChild = async () => {
-    if (!isAdmin) {
-      setChildAddError('Only Admins can add child assets');
-      return;
-    }
-    const trimmedChildName = childName.trim();
-    if (!trimmedChildName) {
-      setChildAddError('Please enter a name for the new child asset.');
-      return;
-    }
-    if (!validNameRegex.test(trimmedChildName)) {
-      setChildAddError('Asset Name can only contain letters, digits, spaces, and underscores.');
-      return;
-    }
-    setChildAddError('');
+  if (!isAdmin) {
+    setChildAddError('Only Admins can add child assets');
+    return;
+  }
+  const trimmedChildName = childName.trim();
+  if (!trimmedChildName) {
+    setChildAddError('Please enter a name for the new child asset.');
+    return;
+  }
+  if (!validNameRegex.test(trimmedChildName)) {
+    setChildAddError('Asset Name can only contain letters, digits, spaces, and underscores.');
+    return;
+  }
+  setChildAddError('');
 
-    if (focusedNode) {
-      try {
-        const msg = await addChildNode(trimmedChildName, focusedNode.node.id);
-        setActionMessage(msg);
-        setChildName('');
-        setShowAddChildModal(false);
-        setRefreshKey((prev) => prev + 1);
-      } catch (err) {
-        setChildAddError(err.message || 'Failed to add child asset.');
+  if (focusedNode) {
+    try {
+      const msg = await addChildNode(trimmedChildName, focusedNode.node.id);
+      setActionMessage(msg);
+      setChildName('');
+      setShowAddChildModal(false);
+      // Fetch the updated hierarchy
+      const updatedTreeData = await fetchHierarchy();
+      setTreeData(updatedTreeData);
+      setAssetMap(buildAssetMap(updatedTreeData));
+      // Update focusedNode with the updated node data
+      const updatedNode = findNodeAndParent(updatedTreeData, focusedNode.node.id);
+      if (updatedNode) {
+        setFocusedNode(updatedNode);
+      } else {
+        setActionMessage('Failed to refresh focused node.');
       }
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      setChildAddError(err.message || 'Failed to add child asset.');
     }
-  };
-
+  }
+};
   const handleAddChildModalCancel = () => {
     setShowAddChildModal(false);
     setChildName('');
