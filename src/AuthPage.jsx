@@ -7,10 +7,10 @@ import { FaGithub } from 'react-icons/fa';
 import settingsIcon from './settings.png';
 import axios from 'axios';
 
-// Create Axios instance for API requests
+
 const api = axios.create({
   baseURL: 'https://localhost:7036/api',
-  withCredentials: true, // Include cookies in requests
+  withCredentials: true, 
 });
 
 const AuthPage = () => {
@@ -208,21 +208,21 @@ const AuthPage = () => {
         style={{
           background: 'rgba(40, 44, 52, 0.95)',
           backdropFilter: 'blur(20px)',
-          borderRadius: '20px',
-          padding: '30px',
+          borderRadius: '16px',
+          padding: '24px',
           width: '100%',
-          maxWidth: '400px',
-          minHeight: '520px',
+          maxWidth: '320px',
+          minHeight: '420px',
           boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
           border: '1px solid rgba(255, 255, 255, 0.1)',
           overflow: 'hidden',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
           <div
             style={{
-              width: '60px',
-              height: '60px',
+              width: '48px',
+              height: '48px',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               borderRadius: '50%',
               display: 'flex',
@@ -234,13 +234,13 @@ const AuthPage = () => {
             <img src={settingsIcon} alt="icon" style={{ width: '60%', height: '60%', objectFit: 'contain' }} />
           </div>
         </div>
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
           <h1
             style={{
               color: 'white',
-              fontSize: '28px',
+              fontSize: '24px',
               fontWeight: '600',
-              margin: '0 0 10px 0',
+              margin: '0 0 8px 0',
             }}
           >
             {isLogin ? 'Welcome back' : 'Create account'}
@@ -249,7 +249,7 @@ const AuthPage = () => {
             style={{
               color: 'rgba(255, 255, 255, 0.7)',
               margin: 0,
-              fontSize: '16px',
+              fontSize: '14px',
             }}
           >
             {isLogin ? 'Sign in to your account to continue' : 'Get started with your new account'}
@@ -259,9 +259,9 @@ const AuthPage = () => {
           style={{
             display: 'flex',
             background: 'rgba(0, 0, 0, 0.3)',
-            borderRadius: '12px',
-            padding: '4px',
-            marginBottom: '20px',
+            borderRadius: '10px',
+            padding: '3px',
+            marginBottom: '16px',
           }}
         >
           <button
@@ -269,12 +269,12 @@ const AuthPage = () => {
             onClick={() => isLogin || toggleAuthMode()}
             style={{
               flex: 1,
-              padding: '12px',
+              padding: '10px',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '7px',
               background: isLogin ? '#10b981' : 'transparent',
               color: 'white',
-              fontSize: '14px',
+              fontSize: '13px',
               fontWeight: '500',
               cursor: 'pointer',
               transition: 'all 0.2s',
@@ -287,12 +287,12 @@ const AuthPage = () => {
             onClick={() => !isLogin || toggleAuthMode()}
             style={{
               flex: 1,
-              padding: '12px',
+              padding: '10px',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '7px',
               background: !isLogin ? '#10b981' : 'transparent',
               color: 'white',
-              fontSize: '14px',
+              fontSize: '13px',
               fontWeight: '500',
               cursor: 'pointer',
               transition: 'all 0.2s',
@@ -302,14 +302,14 @@ const AuthPage = () => {
           </button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <label
               style={{
                 display: 'block',
                 color: 'white',
-                fontSize: '14px',
+                fontSize: '13px',
                 fontWeight: '500',
-                marginBottom: '8px',
+                marginBottom: '6px',
               }}
             >
               Username
@@ -318,14 +318,14 @@ const AuthPage = () => {
               <svg
                 style={{
                   position: 'absolute',
-                  left: '16px',
+                  left: '14px',
                   top: '50%',
                   transform: 'translateY(-50%)',
                   color: 'rgba(255, 255, 255, 0.5)',
                   pointerEvents: 'none',
                 }}
-                width="18"
-                height="18"
+                width="16"
+                height="16"
                 fill="currentColor"
                 viewBox="0 0 24 24"
               >
@@ -340,12 +340,12 @@ const AuthPage = () => {
                 maxLength={30}
                 style={{
                   width: '100%',
-                  padding: '16px 16px 16px 50px',
+                  padding: '12px 12px 12px 42px',
                   background: 'rgba(0, 0, 0, 0.3)',
                   border: errors.username ? '2px solid #ef4444' : '2px solid transparent',
-                  borderRadius: '12px',
+                  borderRadius: '10px',
                   color: 'white',
-                  fontSize: '16px',
+                  fontSize: '14px',
                   outline: 'none',
                   transition: 'border-color 0.2s',
                   boxSizing: 'border-box',
@@ -355,18 +355,18 @@ const AuthPage = () => {
               />
             </div>
             {errors.username && (
-              <p style={{ color: '#ef4444', fontSize: '12px', margin: '6px 0 0 0' }}>{errors.username}</p>
+              <p style={{ color: '#ef4444', fontSize: '11px', margin: '4px 0 0 0' }}>{errors.username}</p>
             )}
           </div>
           {!isLogin && (
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '16px' }}>
               <label
                 style={{
                   display: 'block',
                   color: 'white',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   fontWeight: '500',
-                  marginBottom: '8px',
+                  marginBottom: '6px',
                 }}
               >
                 Email
@@ -375,14 +375,14 @@ const AuthPage = () => {
                 <svg
                   style={{
                     position: 'absolute',
-                    left: '16px',
+                    left: '14px',
                     top: '50%',
                     transform: 'translateY(-50%)',
                     color: 'rgba(255, 255, 255, 0.5)',
                     pointerEvents: 'none',
                   }}
-                  width="18"
-                  height="18"
+                  width="16"
+                  height="16"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
@@ -396,12 +396,12 @@ const AuthPage = () => {
                   placeholder="Enter your email"
                   style={{
                     width: '100%',
-                    padding: '16px 16px 16px 50px',
+                    padding: '12px 12px 12px 42px',
                     background: 'rgba(0, 0, 0, 0.3)',
                     border: errors.email ? '2px solid #ef4444' : '2px solid transparent',
-                    borderRadius: '12px',
+                    borderRadius: '10px',
                     color: 'white',
-                    fontSize: '16px',
+                    fontSize: '14px',
                     outline: 'none',
                     transition: 'border-color 0.2s',
                     boxSizing: 'border-box',
@@ -411,18 +411,18 @@ const AuthPage = () => {
                 />
               </div>
               {errors.email && (
-                <p style={{ color: '#ef4444', fontSize: '12px', margin: '6px 0 0 0' }}>{errors.email}</p>
+                <p style={{ color: '#ef4444', fontSize: '11px', margin: '4px 0 0 0' }}>{errors.email}</p>
               )}
             </div>
           )}
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <label
               style={{
                 display: 'block',
                 color: 'white',
-                fontSize: '14px',
+                fontSize: '13px',
                 fontWeight: '500',
-                marginBottom: '8px',
+                marginBottom: '6px',
               }}
             >
               Password
@@ -431,14 +431,14 @@ const AuthPage = () => {
               <svg
                 style={{
                   position: 'absolute',
-                  left: '16px',
+                  left: '14px',
                   top: '50%',
                   transform: 'translateY(-50%)',
                   color: 'rgba(255, 255, 255, 0.5)',
                   pointerEvents: 'none',
                 }}
-                width="18"
-                height="18"
+                width="16"
+                height="16"
                 fill="currentColor"
                 viewBox="0 0 24 24"
               >
@@ -452,12 +452,12 @@ const AuthPage = () => {
                 placeholder={isLogin ? 'Enter your password' : 'Create a strong password'}
                 style={{
                   width: '100%',
-                  padding: '16px 50px 16px 50px',
+                  padding: '12px 42px 12px 42px',
                   background: 'rgba(0, 0, 0, 0.3)',
                   border: errors.password ? '2px solid #ef4444' : '2px solid transparent',
-                  borderRadius: '12px',
+                  borderRadius: '10px',
                   color: 'white',
-                  fontSize: '16px',
+                  fontSize: '14px',
                   outline: 'none',
                   transition: 'border-color 0.2s',
                   boxSizing: 'border-box',
@@ -470,7 +470,7 @@ const AuthPage = () => {
                 onClick={() => setShowPassword(!showPassword)}
                 style={{
                   position: 'absolute',
-                  right: '16px',
+                  right: '14px',
                   top: '50%',
                   transform: 'translateY(-50%)',
                   background: 'none',
@@ -482,7 +482,7 @@ const AuthPage = () => {
                   justifyContent: 'center',
                 }}
               >
-                <svg width="18" height="18" fill="rgba(255, 255, 255, 0.5)" viewBox="0 0 24 24">
+                <svg width="16" height="16" fill="rgba(255, 255, 255, 0.5)" viewBox="0 0 24 24">
                   {showPassword ? (
                     <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
                   ) : (
@@ -492,7 +492,7 @@ const AuthPage = () => {
               </button>
             </div>
             {errors.password && (
-              <p style={{ color: '#ef4444', fontSize: '12px', margin: '6px 0 0 0' }}>{errors.password}</p>
+              <p style={{ color: '#ef4444', fontSize: '11px', margin: '4px 0 0 0' }}>{errors.password}</p>
             )}
           </div>
           <button
@@ -500,36 +500,36 @@ const AuthPage = () => {
             disabled={isLoading}
             style={{
               width: '100%',
-              padding: '16px',
+              padding: '14px',
               background: isLoading ? 'rgba(102, 126, 234, 0.5)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               border: 'none',
-              borderRadius: '12px',
+              borderRadius: '10px',
               color: 'white',
-              fontSize: '16px',
+              fontSize: '14px',
               fontWeight: '600',
               cursor: isLoading ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s',
-              marginBottom: '20px',
+              marginBottom: '16px',
             }}
           >
             {isLoading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
           </button>
         </form>
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+          <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '12px' }}>
             Or {isLogin ? 'sign in' : 'sign up'} with
           </span>
         </div>
-        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '16px' }}>
           <button
             onClick={() => handleExternalLogin('Google')}
             disabled={isLoading}
             style={{
               flex: 1,
-              padding: '12px',
+              padding: '10px',
               background: 'rgba(255, 255, 255, 0.1)',
               border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '12px',
+              borderRadius: '10px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -537,18 +537,18 @@ const AuthPage = () => {
               transition: 'all 0.2s',
             }}
           >
-            <FcGoogle size={24} style={{ marginRight: '8px' }} />
-            <span style={{ color: 'white', fontSize: '14px', fontWeight: '500' }}>Google</span>
+            <FcGoogle size={20} style={{ marginRight: '6px' }} />
+            <span style={{ color: 'white', fontSize: '12px', fontWeight: '500' }}>Google</span>
           </button>
           <button
             onClick={() => handleExternalLogin('GitHub')}
             disabled={isLoading}
             style={{
               flex: 1,
-              padding: '12px',
+              padding: '10px',
               background: 'rgba(255, 255, 255, 0.1)',
               border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '12px',
+              borderRadius: '10px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -556,20 +556,20 @@ const AuthPage = () => {
               transition: 'all 0.2s',
             }}
           >
-            <FaGithub size={24} style={{ marginRight: '8px', color: 'white' }} />
-            <span style={{ color: 'white', fontSize: '14px', fontWeight: '500' }}>GitHub</span>
+            <FaGithub size={20} style={{ marginRight: '6px', color: 'white' }} />
+            <span style={{ color: 'white', fontSize: '12px', fontWeight: '500' }}>GitHub</span>
           </button>
         </div>
         {message && (
           <div
             style={{
-              padding: '12px',
+              padding: '10px',
               borderRadius: '8px',
               background: message.includes('successful') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
               color: message.includes('successful') ? '#10b981' : '#ef4444',
-              fontSize: '14px',
+              fontSize: '12px',
               textAlign: 'center',
-              marginBottom: '20px',
+              marginBottom: '16px',
               border: `1px solid ${message.includes('successful') ? '#10b981' : '#ef4444'}`,
             }}
           >
@@ -577,7 +577,7 @@ const AuthPage = () => {
           </div>
         )}
         <div style={{ textAlign: 'center' }}>
-          <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
+          <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '12px' }}>
             {isLogin ? "Don't have an account? " : 'Already have an account? '}
           </span>
           <button
@@ -587,7 +587,7 @@ const AuthPage = () => {
               background: 'none',
               border: 'none',
               color: '#10b981',
-              fontSize: '14px',
+              fontSize: '12px',
               fontWeight: '500',
               cursor: 'pointer',
               textDecoration: 'underline',

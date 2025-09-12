@@ -1,3 +1,132 @@
+
+
+/* Modal Overlay (used for all modals, including info modal) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5); 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 6000; 
+}
+
+/* Info Modal */
+.info-modal {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 6100; 
+}
+
+.info-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.info-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.modal-close-button {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #4a5568;
+  transition: color 0.2s;
+}
+
+.modal-close-button:hover {
+  color: #1a202c;
+}
+
+.info-modal-content {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.info-modal-footer {
+  padding: 16px;
+  border-top: 1px solid #e5e5e5;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.card {
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e5e5e5;
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.scroll-area {
+  max-height: 16rem; /* Matches h-64 */
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #edf2f7;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll-area::-webkit-scrollbar-track {
+  background: #edf2f7;
+  border-radius: 4px;
+}
+
+.scroll-area::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+}
+
+.scroll-area::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+.modal-btn.confirm {
+  background-color: #2b6cb0;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.modal-btn.confirm:hover {
+  background-color: #2c5282;
+}
+
+.info-icon {
+  transition: transform 0.2s;
+}
+
+.info-icon:hover {
+  transform: scale(1.2);
+}
+
 /* JSON buttons (top-right corner, outside search) */
 .json-buttons {
   display: flex;
@@ -49,6 +178,7 @@
   background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
   color: #fff;
 }
+
 .import-button:hover {
   background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
   transform: translateY(-2px);
@@ -59,6 +189,7 @@
   background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
   color: #fff;
 }
+
 .export-button:hover {
   background: linear-gradient(135deg, #e53e3e 0%, #9b2c2c 100%);
   transform: translateY(-2px);
@@ -68,7 +199,6 @@
 .upload-input {
   display: none;
 }
-
 
 /* Search container centered */
 .search-container {
@@ -95,7 +225,7 @@
   height: 44px;
   flex: 0 1 500px; /* Max width of 500px, can shrink */
   position: relative;
-  z-index: 4100; /* From previous fix */
+  z-index: 4100; /* Lower than info-modal */
 }
 
 /* Input inside search */
@@ -109,6 +239,7 @@
   border-radius: 30px;
   background: transparent;
 }
+
 .search-input::placeholder {
   color: #a0aec0;
 }
@@ -125,6 +256,7 @@
   height: 100%;
   transition: color 0.2s ease;
 }
+
 .search-button:hover {
   color: #5a67d8;
 }
@@ -143,7 +275,7 @@
   overflow-y: auto;
   list-style: none;
   padding: 4px 0;
-  z-index: 5000; /* From previous fix */
+  z-index: 5000; /* Lower than info-modal */
 }
 
 /* Suggestion item */
@@ -154,6 +286,7 @@
   margin: 4px 8px;
   transition: background 0.2s ease;
 }
+
 .suggestion-item:hover {
   background: #f7fafc;
 }
@@ -202,17 +335,9 @@
     flex: 1;
   }
   .search-suggestions {
-    width: 100vw;    /* full screen width on mobile */
+    width: 100vw; /* full screen width on mobile */
     left: 50%;
     transform: translateX(-50%); /* center align */
     max-width: 500px;
   }
-}
-
-.search-input::placeholder {
-  color: #a0aec0;
-}
-
-.search-button:hover {
-  color: #5a67d8;
 }

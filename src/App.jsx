@@ -16,6 +16,9 @@ import './panels/signals.css';
 import { addChildNode, addRoot, downloadFile, fetchHierarchy, removeAsset, searchAsset, updateAsset, reorderAsset, replaceFile } from './services/api.js';
 import { fetchSignalsByAssetId, addSignal, removeSignal, updateSignal } from './services/api.js';
 import Fuse from 'fuse.js';
+import infoIcon from "./info.png";
+
+
 
 function App() {
   const dispatch = useDispatch();
@@ -52,10 +55,12 @@ function App() {
   const [draggedNode, setDraggedNode] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [showReorderModal, setShowReorderModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const [notifications, setNotifications] = useState([]);
-  const [showDeleteSignalModal, setShowDeleteSignalModal] = useState(false); // New state for signal deletion modal
+  const [showDeleteSignalModal, setShowDeleteSignalModal] = useState(false); 
   const [signalToDelete, setSignalToDelete] = useState(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
   const validNameRegex = /^[a-zA-Z0-9 _]+$/;
 
   // Check if user is Admin
@@ -71,12 +76,12 @@ function App() {
       .withAutomaticReconnect()
       .build();
 
-    connection.on('ReceiveNotification', (message) => {
-      setNotifications((prev) => [
-        ...prev,
-        { id: Date.now(), message, timestamp: new Date().toLocaleTimeString() },
-      ]);
-    });
+   connection.on('ReceiveNotification', (id, message) => {
+  setNotifications((prev) => [
+    ...prev,
+    { id, message, timestamp: new Date().toLocaleTimeString() },
+  ]);
+});
 
     connection.start()
       .then(() => console.log('SignalR Connected'))
@@ -87,15 +92,8 @@ function App() {
     };
   }, []);
 
-  // Automatically remove notifications after 5 seconds
-  useEffect(() => {
-    if (notifications.length > 0) {
-      const timer = setTimeout(() => {
-        setNotifications((prev) => prev.slice(1));
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [notifications]);
+
+
 
   // Load initial data
   const loadData = async () => {
@@ -313,24 +311,71 @@ function App() {
   };
 
   // Drag-and-drop handling
-  const handleDragStart = (node) => {
-    setDraggedNode(node);
-  };
+const isDescendant = (parent, child, treeData) => {
+  if (!parent || !child) return false;
+  let current = child;
 
-  const handleDrop = (targetNode) => {
-    if (!isAdmin) {
-      setActionMessage('Only Admins can reorder assets');
-      setDraggedNode(null);
-      return;
-    }
-    if (draggedNode && targetNode && draggedNode.id !== targetNode.id) {
-      setDropTarget(targetNode);
-      setShowReorderModal(true);
-    } else {
-      setActionMessage('Cannot drop on the same node or invalid target.');
-      setDraggedNode(null);
-    }
-  };
+  while (current) {
+    if (current.id === parent.id) return true;
+    const parentNode = current.parentId
+      ? findNodeAndParent(treeData, current.parentId)?.node
+      : null;
+    current = parentNode;
+  }
+
+  return false;
+};
+
+const handleDragStart = (node) => {
+  if (!node) {
+    setActionMessage('Invalid node selected for dragging.');
+    return;
+  }
+  setDraggedNode(node);
+};
+
+const handleDrop = (targetNode) => {
+  if (!isAdmin) {
+    setActionMessage('Only Admins can reorder assets.');
+    setDraggedNode(null);
+    return;
+  }
+
+   if (draggedNode.parentId === targetNode.id) {
+    setActionMessage('Node already exists under this parent.');
+    setDraggedNode(null);
+    return;
+  }
+
+  if (!draggedNode || !targetNode) {
+    setActionMessage('Invalid drag or drop target.');
+    setDraggedNode(null);
+    return;
+  }
+
+  if (draggedNode.id === targetNode.id) {
+    setActionMessage('Cannot drop a node onto itself.');
+    setDraggedNode(null);
+    return;
+  }
+
+  if (isDescendant(draggedNode, targetNode, treeData)) {
+    setActionMessage('Not allowed - Cannot make a parent a child of its descendant.');
+    setDraggedNode(null);
+    return;
+  }
+
+  if (isDescendant(targetNode, draggedNode, treeData)) {
+    setActionMessage('Not allowed - Cannot make a child a parent of its ancestor.');
+    setDraggedNode(null);
+    return;
+  }
+
+  // ✅ Valid drop
+  setDropTarget(targetNode);
+  setShowReorderModal(true);
+};
+
 
   const handleReorderConfirm = async () => {
     if (!isAdmin) {
@@ -632,6 +677,48 @@ function App() {
     handleNodeClick(suggestion.id);
   };
 
+  // Info modal handling
+  const handleInfoClick = () => {
+    setShowInfoModal(true);
+  };
+
+  const handleInfoModalClose = () => {
+    setShowInfoModal(false);
+  };
+
+  // Example JSON for the modal
+  const exampleJson = `[
+  {
+    "Id": 1,
+    "Name": "SteelPlant",
+    "ParentId": null,
+    "Children": [
+      {
+        "Id": 2,
+        "Name": "BlastFurnace",
+        "ParentId": 1,
+        "Children": [],
+        "Signals": [
+          {
+            "SignalId": 3,
+            "SignalName": "FurnaceStatus",
+            "SignalType": "Integer",
+            "Description": "Indicates furnace operational status"
+          }
+        ]
+      }
+    ],
+    "Signals": [
+      {
+        "SignalId": 7,
+        "SignalName": "PlantPowerConsumption",
+        "SignalType": "Real",
+        "Description": "Overall power usage of steel plant"
+      }
+    ]
+  }
+]`;
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="app-container">
@@ -641,8 +728,18 @@ function App() {
             <p className="userName">{userName || 'Unknown User'}</p>
           </div>
           <div className="json-buttons">
+
             {isAdmin && (
               <>
+               <img
+                  src={infoIcon}
+                  alt="Info"
+                  className="info-icon"
+                  onClick={handleInfoClick}
+                  title='JSON Format Info'
+                  style={{ width: '25px', height: '25px', cursor: 'pointer', color: 'white' }}
+                />
+
                 <label htmlFor="upload-input" className="json-button import-button">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -938,15 +1035,114 @@ function App() {
           </div>
         </div>
 
-        {/* Notification Div */}
-        <div className="notification-container">
-          {notifications.map((notification) => (
+       {/* Notification Bell and Panel */}
+<div className="notification-bell-container">
+  <button
+    className="notification-bell"
+    onClick={() => setShowNotifications(!showNotifications)}
+    aria-label="Toggle Notifications"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+    </svg>
+    {notifications.length > 0 && (
+      <span className="notification-badge">{notifications.length}</span>
+    )}
+  </button>
+  {showNotifications && (
+    <div className="notification-panel">
+      <div className="notification-header">
+        <h3>Notifications</h3>
+        {notifications.length > 0 && (
+          <button
+            className="clear-all-button"
+            onClick={() => setNotifications([])}
+            aria-label="Clear All Notifications"
+          >
+            Clear All
+          </button>
+        )}
+      </div>
+      <div className="notification-list">
+        {notifications.length > 0 ? (
+          notifications.map((notification) => (
             <div key={notification.id} className="notification">
               <p>{notification.message}</p>
               <span className="notification-timestamp">{notification.timestamp}</span>
+              <button
+                className="notification-close"
+                onClick={() =>
+                  setNotifications((prev) =>
+                    prev.filter((n) => n.id !== notification.id)
+                  )
+                }
+                aria-label="Close Notification"
+              >
+                ✕
+              </button>
             </div>
-          ))}
-        </div>
+          ))
+        ) : (
+          <p className="no-notifications">No notifications</p>
+        )}
+      </div>
+    </div>
+  )}
+</div>
+
+       {/* Info Modal */}
+        {showInfoModal && (
+          <div className="modal-overlay">
+            <div className="info-modal" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
+              <div className="info-modal-header">
+                <h2 id="infoModalTitle" className="text-2xl font-bold">JSON Upload Instructions</h2>
+                <button
+                  className="modal-close-button"
+                  onClick={handleInfoModalClose}
+                  aria-label="Close modal"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="info-modal-content">
+                <div className="card shadow-lg p-4 space-y-3">
+                  <h3 className="text-xl font-semibold">⚠️ Guidelines</h3>
+                  <ul className="list-disc pl-6 space-y-2 text-gray-700">
+                    <li>All keys (<code>Id</code>, <code>Name</code>, <code>ParentId</code>, <code>Children</code>, <code>Signals</code>, etc.) <b>must be present</b>.</li>
+                    <li>No special characters allowed in <b>keys or values</b> (only letters, numbers, and underscores).</li>
+                    <li>Duplicate keys are <b>not allowed</b>.</li>
+                   
+                  </ul>
+                </div>
+                <div className="card shadow-lg p-4 space-y-3 mt-4">
+                  <h3 className="text-xl font-semibold">📄 Example JSON</h3>
+                  <div className="scroll-area h-64 rounded-md border p-3 bg-gray-900 text-green-400 text-sm font-mono">
+                    <pre>{exampleJson}</pre>
+                  </div>
+                </div>
+              </div>
+              <div className="info-modal-footer">
+                <button
+                  className="modal-btn confirm"
+                  onClick={handleInfoModalClose}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Add Signal Modal */}
         {showAddSignalModal && isAdmin && (

@@ -9,65 +9,91 @@ import AuthPage from './AuthPage.jsx';
 import App from './App.jsx';
 import axios from 'axios';
 
-// Create an Axios instance for API requests
 const api = axios.create({
   baseURL: 'https://localhost:7036/api',
-  withCredentials: true, // Include cookies in requests
+  withCredentials: true,
 });
 
 const Root = () => {
   const dispatch = useDispatch();
-  const isRefreshing = useRef(false); // Track ongoing refresh attempts
-  const retryQueue = useRef([]); // Queue for requests waiting on refresh
+  const isRefreshing = useRef(false);
+  const retryQueue = useRef([]);
+  const tokenExpirationTimeout = useRef(null);
+
+  // Function to schedule token refresh
+  const scheduleTokenRefresh = (expiresIn = 10 * 60 * 1000) => { 
+    if (tokenExpirationTimeout.current) {
+      clearTimeout(tokenExpirationTimeout.current);
+    }
+    
+    // Schedule refresh 30 seconds before expiration
+    const refreshTime = expiresIn - 30 * 1000;
+    tokenExpirationTimeout.current = setTimeout(async () => {
+      try {
+        isRefreshing.current = true;
+        const refreshResponse = await api.post('/auth/refresh');
+        if (refreshResponse.status === 200) {
+          const userResponse = await api.get('/auth/me');
+          dispatch(setUser({
+            userName: userResponse.data.userName,
+            roles: userResponse.data.roles,
+          }));
+          // Schedule next refresh
+          scheduleTokenRefresh();
+        }
+      } catch (error) {
+        console.error('Token refresh error:', error);
+        dispatch(clearUser());
+        window.location.href = '/auth';
+      } finally {
+        isRefreshing.current = false;
+      }
+    }, refreshTime);
+  };
 
   useEffect(() => {
-    // Set up Axios interceptor for handling 401 errors
     const interceptor = api.interceptors.response.use(
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
 
-        // Only handle 401 errors and ensure no infinite retry
         if (error.response?.status === 401 && !originalRequest._retry) {
           if (isRefreshing.current) {
-            // Queue the request if a refresh is already in progress
             return new Promise((resolve, reject) => {
               retryQueue.current.push({ resolve, reject, originalRequest });
             });
           }
 
-          originalRequest._retry = true; // Mark as retried
-          isRefreshing.current = true; // Start refresh
+          originalRequest._retry = true;
+          isRefreshing.current = true;
 
           try {
-            // Attempt to refresh token
             const refreshResponse = await api.post('/auth/refresh');
             if (refreshResponse.status === 200) {
-              // Update Redux store with new user data
               const userResponse = await api.get('/auth/me');
               dispatch(setUser({
                 userName: userResponse.data.userName,
                 roles: userResponse.data.roles,
               }));
 
-              // Resolve all queued requests
               retryQueue.current.forEach(({ resolve, originalRequest }) => {
                 resolve(api(originalRequest));
               });
               retryQueue.current = [];
 
-              // Retry the original request
+              // Schedule next refresh after successful refresh
+              scheduleTokenRefresh();
+
               return api(originalRequest);
             }
           } catch (refreshError) {
-            // Refresh token invalid or expired, clear auth and redirect
             dispatch(clearUser());
             retryQueue.current.forEach(({ reject }) => reject(refreshError));
             retryQueue.current = [];
             window.location.href = '/auth';
             return Promise.reject(refreshError);
           } finally {
-            isRefreshing.current = false; // End refresh
+            isRefreshing.current = false;
           }
         }
         return Promise.reject(error);
@@ -83,6 +109,8 @@ const Root = () => {
             userName: response.data.userName,
             roles: response.data.roles,
           }));
+          // Start token refresh cycle after successful login
+          scheduleTokenRefresh();
         } else {
           dispatch(clearUser());
         }
@@ -96,18 +124,29 @@ const Root = () => {
 
     fetchCurrentUser();
 
-    // Cleanup interceptor on component unmount
-    return () => api.interceptors.response.eject(interceptor);
+    // Cleanup interceptor and timeout on unmount
+    return () => {
+      api.interceptors.response.eject(interceptor);
+      if (tokenExpirationTimeout.current) {
+        clearTimeout(tokenExpirationTimeout.current);
+      }
+    };
   }, [dispatch]);
 
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
       dispatch(clearUser());
+      if (tokenExpirationTimeout.current) {
+        clearTimeout(tokenExpirationTimeout.current);
+      }
       window.location.href = '/auth';
     } catch (err) {
       console.error('Logout error:', err);
       dispatch(clearUser());
+      if (tokenExpirationTimeout.current) {
+        clearTimeout(tokenExpirationTimeout.current);
+      }
       window.location.href = '/auth';
     }
   };
