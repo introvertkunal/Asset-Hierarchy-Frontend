@@ -60,7 +60,10 @@ const AuthPage = () => {
 
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
-    } else if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(formData.username)) {
+    } else if (formData.username.length < 3) {  
+    newErrors.username = 'Username must be at least 3 characters';
+  } 
+    else if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(formData.username)) {
       newErrors.username = 'Username must start with a letter and contain only letters, numbers, and underscores';
     } else if (formData.username.length > 30) {
       newErrors.username = 'Username must be 30 characters or less';
