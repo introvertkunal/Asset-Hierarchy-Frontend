@@ -19,6 +19,7 @@ export const addRoot = async (name) => {
     }
   );
   if (!response.ok) throw new Error("Failed to add root asset");
+  
   return await response.text();
 };
 
