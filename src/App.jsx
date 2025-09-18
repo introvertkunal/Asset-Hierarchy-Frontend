@@ -14,10 +14,10 @@ import './panels/searchbar.css';
 import './panels/leftpaneltree.css';
 import './panels/signals.css';
 import { addChildNode, addRoot, downloadFile, fetchHierarchy, removeAsset, searchAsset, updateAsset, reorderAsset, replaceFile } from './services/api.js';
-import { fetchSignalsByAssetId, addSignal, removeSignal, updateSignal } from './services/api.js';
+import { fetchSignalsByAssetId, addSignal, removeSignal, updateSignal, AverageSignal } from './services/api.js';
 import Fuse from 'fuse.js';
 import infoIcon from "./info.png";
-
+import Average from "./average.png";
 
 
 function App() {
@@ -170,6 +170,21 @@ function App() {
     setSignalError('');
     return true;
   };
+
+
+  const handleAverageClick = async (signalId) => {
+  if (!isAdmin) {
+    setActionMessage('Only Admins can set average values');
+    return;
+  }
+  try {
+    const msg = await AverageSignal(signalId); 
+    setActionMessage(msg);
+  } catch (err) {
+    setActionMessage(err.message || 'Failed to calculate average');
+  }
+};
+
 
   // Submit new signal
   const handleAddSignal = async () => {
@@ -997,6 +1012,14 @@ const handleDrop = (targetNode) => {
                       </div>
                       {isAdmin && (
                         <div className="signal-actions">
+                        <button className="signal-button average" title="Average Value">
+                          <img src={Average} 
+                          alt="Average"
+                          width={20} 
+                          height={20}
+                          onClick={() => handleAverageClick(signal.signalId)}
+                          />
+                        </button>
                           <button
                             className="signal-button edit"
                             aria-label="Edit Signal"
@@ -1102,47 +1125,71 @@ const handleDrop = (targetNode) => {
 </div>
 
        {/* Info Modal */}
-        {showInfoModal && (
-          <div className="modal-overlay">
-            <div className="info-modal" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
-              <div className="info-modal-header">
-                <h2 id="infoModalTitle" className="text-2xl font-bold">JSON Upload Instructions</h2>
-                <button
-                  className="modal-close-button"
-                  onClick={handleInfoModalClose}
-                  aria-label="Close modal"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="info-modal-content">
-                <div className="card shadow-lg p-4 space-y-3">
-                  <h3 className="text-xl font-semibold">⚠️ Guidelines</h3>
-                  <ul className="list-disc pl-6 space-y-2 text-gray-700">
-                    <li>All keys (<code>Id</code>, <code>Name</code>, <code>ParentId</code>, <code>Children</code>, <code>Signals</code>, etc.) <b>must be present</b>.</li>
-                    <li>No special characters allowed in <b>keys or values</b> (only letters, numbers, and underscores).</li>
-                    <li>Duplicate keys are <b>not allowed</b>.</li>
-                   
-                  </ul>
-                </div>
-                <div className="card shadow-lg p-4 space-y-3 mt-4">
-                  <h3 className="text-xl font-semibold">📄 Example JSON</h3>
-                  <div className="scroll-area h-64 rounded-md border p-3 bg-gray-900 text-green-400 text-sm font-mono">
-                    <pre>{exampleJson}</pre>
-                  </div>
-                </div>
-              </div>
-              <div className="info-modal-footer">
-                <button
-                  className="modal-btn confirm"
-                  onClick={handleInfoModalClose}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
+      {showInfoModal && (
+  <div className="modal-overlay">
+    <div className="info-modal" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
+      <div className="info-modal-header">
+        <h2 id="infoModalTitle" className="text-2xl font-bold">JSON Upload Instructions</h2>
+        <button
+          className="modal-close-button"
+          onClick={handleInfoModalClose}
+          aria-label="Close modal"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="info-modal-content">
+        <div className="card shadow-lg p-4 space-y-3">
+          <h3 className="text-xl font-semibold">⚠️ Guidelines</h3>
+          <ul className="list-disc pl-6 space-y-2 text-gray-700">
+            <li>All keys (<code>Id</code>, <code>Name</code>, <code>ParentId</code>, <code>Children</code>, <code>Signals</code>, etc.) <b>must be present</b>.</li>
+            <li>No special characters allowed in <b>keys or values</b> (only letters, numbers, and underscores).</li>
+            <li>Duplicate keys are <b>not allowed</b>.</li>
+          </ul>
+        </div>
+        <div className="card shadow-lg p-4 space-y-3 mt-4">
+          <h3 className="text-xl font-semibold">📄 Example JSON</h3>
+          <div className="scroll-area h-64 rounded-md border p-3 bg-gray-900 text-green-400 text-sm font-mono">
+            <pre>{exampleJson}</pre>
           </div>
-        )}
+        </div>
+      </div>
+   <div className="info-modal-footer">
+  <div className="left-buttons">
+    <button
+      className="modal-btn copy"
+      onClick={() => navigator.clipboard.writeText(exampleJson)}
+      aria-label="Copy example JSON"
+    >
+      Copy
+    </button>
+    <button
+      className="modal-btn download"
+      onClick={() => {
+        const blob = new Blob([exampleJson], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'example.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      }}
+      aria-label="Download example JSON"
+    >
+      Download
+    </button>
+  </div>
+
+  <button
+    className="modal-btn confirm"
+    onClick={handleInfoModalClose}
+  >
+    Close
+  </button>
+</div>
+    </div>
+  </div>
+)}
 
         {/* Add Signal Modal */}
         {showAddSignalModal && isAdmin && (

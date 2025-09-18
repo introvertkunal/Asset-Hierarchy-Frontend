@@ -141,3 +141,12 @@ export const updateSignal = async (signalId, signal) => {
   if (!response.ok) throw new Error("Failed to update signal");
   return await response.text();
 };
+
+export const AverageSignal = async (signalId) => {
+  const response = await fetch(`${BASE_URL}/Signal/${signalId}/average`, {
+    method: "POST",
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error("Failed to calculate average");
+  return await response.text();
+}
