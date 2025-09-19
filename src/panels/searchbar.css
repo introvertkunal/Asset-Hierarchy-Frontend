@@ -320,6 +320,11 @@
   background: #f7fafc;
 }
 
+.suggestion-item.selected {
+  background: #e0e7ff; /* Light blue highlight for selected suggestion */
+  color: #1e40af; /* Darker text for contrast */
+}
+
 /* Search message (feedback below suggestions) */
 .search-message {
   padding: 12px 20px;

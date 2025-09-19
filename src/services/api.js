@@ -18,8 +18,6 @@ export const addRoot = async (name) => {
       credentials: 'include',
     }
   );
-  if (!response.ok) throw new Error("Failed to add root asset");
-  
   return await response.text();
 };
 
@@ -31,7 +29,6 @@ export const addChildNode = async (name, parentId) => {
       credentials: 'include',
     }
   );
-  if (!response.ok) throw new Error("Failed to add child asset");
   return await response.text();
 };
 
@@ -40,7 +37,6 @@ export const removeAsset = async (id) => {
     method: "DELETE",
     credentials: 'include',
   });
-  if (!response.ok) throw new Error("Failed to delete asset");
   return await response.text();
 };
 
@@ -52,7 +48,6 @@ export const updateAsset = async (id, newName) => {
       credentials: 'include',
     }
   );
-  if (!response.ok) throw new Error("Failed to update asset");
   return await response.text();
 };
 
@@ -63,7 +58,6 @@ export const searchAsset = async (name) => {
       credentials: 'include',
     }
   );
-  if (!response.ok) throw new Error("Asset not found");
   return await response.json();
 };
 
@@ -75,7 +69,6 @@ export const reorderAsset = async (id, newParentId) => {
       credentials: 'include',
     }
   );
-  if (!response.ok) throw new Error("Failed to reorder asset");
   return await response.text();
 };
 
@@ -88,8 +81,6 @@ export const replaceFile = async (file) => {
     body: formData,
     credentials: 'include',
   });
-
-  if (!response.ok) throw new Error("Failed to replace file");
   return await response.text();
 };
 
@@ -107,7 +98,6 @@ export const fetchSignalsByAssetId = async (assetId) => {
   const response = await fetch(`${BASE_URL}/Signal/node/${assetId}`, {
     credentials: 'include',
   });
-  if (!response.ok) throw new Error("Failed to fetch signals");
   return await response.json();
 };
 
@@ -118,7 +108,6 @@ export const addSignal = async (assetId, signal) => {
     body: JSON.stringify(signal),
     credentials: 'include',
   });
-  if (!response.ok) throw new Error("Failed to add signal");
   return await response.text();
 };
 
@@ -127,7 +116,6 @@ export const removeSignal = async (signalId) => {
     method: "DELETE",
     credentials: 'include',
   });
-  if (!response.ok) throw new Error("Failed to delete signal");
   return await response.text();
 };
 
@@ -138,7 +126,6 @@ export const updateSignal = async (signalId, signal) => {
     body: JSON.stringify(signal),
     credentials: 'include',
   });
-  if (!response.ok) throw new Error("Failed to update signal");
   return await response.text();
 };
 
@@ -147,6 +134,5 @@ export const AverageSignal = async (signalId) => {
     method: "POST",
     credentials: 'include',
   });
-  if (!response.ok) throw new Error("Failed to calculate average");
   return await response.text();
 }

@@ -3,7 +3,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import * as signalR from '@microsoft/signalr';
 import { useSelector, useDispatch } from 'react-redux';
-import { clearUser } from './store/authSlice'; // Adjust path based on your project structure
+import { clearUser } from './store/authSlice';
 import './App.css';
 import TreeNode from './components/TreeNode.jsx';
 import FilteredTreeNode from './components/FilteredTreeNode.jsx';
@@ -19,19 +19,19 @@ import Fuse from 'fuse.js';
 import infoIcon from "./info.png";
 import Average from "./average.png";
 
-
 function App() {
   const dispatch = useDispatch();
   const { userName, roles } = useSelector((state) => state.auth);
 
   // Essential states
-   const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [treeData, setTreeData] = useState(null);
   const [searchName, setSearchName] = useState('');
   const [actionMessage, setActionMessage] = useMessageTimeout('');
   const [expanded, setExpanded] = useState({});
   const [assetMap, setAssetMap] = useState(new Map());
   const [suggestions, setSuggestions] = useState([]);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1); // New state for selected suggestion
   const [focusedNode, setFocusedNode] = useState(null);
   const [showFocusedView, setShowFocusedView] = useState(false);
   const [filteredTreeData, setFilteredTreeData] = useState(null);
@@ -56,12 +56,13 @@ function App() {
   const [dropTarget, setDropTarget] = useState(null);
   const [showReorderModal, setShowReorderModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-
   const [notifications, setNotifications] = useState([]);
-  const [showDeleteSignalModal, setShowDeleteSignalModal] = useState(false); 
+  const [showDeleteSignalModal, setShowDeleteSignalModal] = useState(false);
   const [signalToDelete, setSignalToDelete] = useState(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const validNameRegex = /^[a-zA-Z0-9 _]+$/;
+
+  // Validation regex: starts with letter, followed by letters, digits, spaces, or underscores
+  const validNameRegex = /^[a-zA-Z][a-zA-Z0-9 _]*$/;
 
   // Check if user is Admin
   const isAdmin = roles.includes('Admin');
@@ -76,12 +77,12 @@ function App() {
       .withAutomaticReconnect()
       .build();
 
-   connection.on('ReceiveNotification', (id, message) => {
-  setNotifications((prev) => [
-    ...prev,
-    { id, message, timestamp: new Date().toLocaleTimeString() },
-  ]);
-});
+    connection.on('ReceiveNotification', (id, message) => {
+      setNotifications((prev) => [
+        ...prev,
+        { id, message, timestamp: new Date().toLocaleTimeString() },
+      ]);
+    });
 
     connection.start()
       .then(() => console.log('SignalR Connected'))
@@ -91,9 +92,6 @@ function App() {
       connection.stop();
     };
   }, []);
-
-
-
 
   // Load initial data
   const loadData = async () => {
@@ -113,11 +111,10 @@ function App() {
   // Handle logout
   const handleLogout = async () => {
     try {
-    const response =   await fetch('https://localhost:7036/api/auth/logout', {
+      const response = await fetch('https://localhost:7036/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
-
       console.log('Logout response:', response.json());
       dispatch(clearUser());
       window.location.href = '/login';
@@ -153,7 +150,16 @@ function App() {
   // Handle input change in add/edit signal modal
   const handleSignalInputChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'signalName' && value.length > 30) {
+      setSignalError('Signal name must not exceed 30 characters.');
+      return;
+    }
+    if (name === 'description' && value.length > 200) {
+      setSignalError('Description must not exceed 200 characters.');
+      return;
+    }
     setSignalForm((prev) => ({ ...prev, [name]: value }));
+    setSignalError('');
   };
 
   // Validate Signal form
@@ -163,28 +169,34 @@ function App() {
       setSignalError('Please enter a signal name.');
       return false;
     }
+    if (trimmedName.length > 30) {
+      setSignalError('Signal name must not exceed 30 characters.');
+      return false;
+    }
     if (!validNameRegex.test(trimmedName)) {
-      setSignalError('Signal Name can only contain letters, digits, spaces, and underscores.');
+      setSignalError('Signal name must start with a letter and contain only letters, digits, spaces, or underscores.');
+      return false;
+    }
+    if (signalForm.description.length > 200) {
+      setSignalError('Description must not exceed 200 characters.');
       return false;
     }
     setSignalError('');
     return true;
   };
 
-
   const handleAverageClick = async (signalId) => {
-  if (!isAdmin) {
-    setActionMessage('Only Admins can set average values');
-    return;
-  }
-  try {
-    const msg = await AverageSignal(signalId); 
-    setActionMessage(msg);
-  } catch (err) {
-    setActionMessage(err.message || 'Failed to calculate average');
-  }
-};
-
+    if (!isAdmin) {
+      setActionMessage('Only Admins can set average values');
+      return;
+    }
+    try {
+      const msg = await AverageSignal(signalId);
+      setActionMessage(msg);
+    } catch (err) {
+      setActionMessage(err.message || 'Failed to calculate average');
+    }
+  };
 
   // Submit new signal
   const handleAddSignal = async () => {
@@ -326,71 +338,69 @@ function App() {
   };
 
   // Drag-and-drop handling
-const isDescendant = (parent, child, treeData) => {
-  if (!parent || !child) return false;
-  let current = child;
+  const isDescendant = (parent, child, treeData) => {
+    if (!parent || !child) return false;
+    let current = child;
 
-  while (current) {
-    if (current.id === parent.id) return true;
-    const parentNode = current.parentId
-      ? findNodeAndParent(treeData, current.parentId)?.node
-      : null;
-    current = parentNode;
-  }
+    while (current) {
+      if (current.id === parent.id) return true;
+      const parentNode = current.parentId
+        ? findNodeAndParent(treeData, current.parentId)?.node
+        : null;
+      current = parentNode;
+    }
 
-  return false;
-};
+    return false;
+  };
 
-const handleDragStart = (node) => {
-  if (!node) {
-    setActionMessage('Invalid node selected for dragging.');
-    return;
-  }
-  setDraggedNode(node);
-};
+  const handleDragStart = (node) => {
+    if (!node) {
+      setActionMessage('Invalid node selected for dragging.');
+      return;
+    }
+    setDraggedNode(node);
+  };
 
-const handleDrop = (targetNode) => {
-  if (!isAdmin) {
-    setActionMessage('Only Admins can reorder assets.');
-    setDraggedNode(null);
-    return;
-  }
+  const handleDrop = (targetNode) => {
+    if (!isAdmin) {
+      setActionMessage('Only Admins can reorder assets.');
+      setDraggedNode(null);
+      return;
+    }
 
-   if (draggedNode.parentId === targetNode.id) {
-    setActionMessage('Node already exists under this parent.');
-    setDraggedNode(null);
-    return;
-  }
+    if (draggedNode.parentId === targetNode.id) {
+      setActionMessage('Node already exists under this parent.');
+      setDraggedNode(null);
+      return;
+    }
 
-  if (!draggedNode || !targetNode) {
-    setActionMessage('Invalid drag or drop target.');
-    setDraggedNode(null);
-    return;
-  }
+    if (!draggedNode || !targetNode) {
+      setActionMessage('Invalid drag or drop target.');
+      setDraggedNode(null);
+      return;
+    }
 
-  if (draggedNode.id === targetNode.id) {
-    setActionMessage('Cannot drop a node onto itself.');
-    setDraggedNode(null);
-    return;
-  }
+    if (draggedNode.id === targetNode.id) {
+      setActionMessage('Cannot drop a node onto itself.');
+      setDraggedNode(null);
+      return;
+    }
 
-  if (isDescendant(draggedNode, targetNode, treeData)) {
-    setActionMessage('Not allowed - Cannot make a parent a child of its descendant.');
-    setDraggedNode(null);
-    return;
-  }
+    if (isDescendant(draggedNode, targetNode, treeData)) {
+      setActionMessage('Not allowed - Cannot make a parent a child of its descendant.');
+      setDraggedNode(null);
+      return;
+    }
 
-  if (isDescendant(targetNode, draggedNode, treeData)) {
-    setActionMessage('Not allowed - Cannot make a child a parent of its ancestor.');
-    setDraggedNode(null);
-    return;
-  }
+    if (isDescendant(targetNode, draggedNode, treeData)) {
+      setActionMessage('Not allowed - Cannot make a child a parent of its ancestor.');
+      setDraggedNode(null);
+      return;
+    }
 
-  // ✅ Valid drop
-  setDropTarget(targetNode);
-  setShowReorderModal(true);
-};
-
+    setDropTarget(targetNode);
+    setShowReorderModal(true);
+  };
 
   const handleReorderConfirm = async () => {
     if (!isAdmin) {
@@ -431,8 +441,12 @@ const handleDrop = (targetNode) => {
       setAddError('Please enter a name for the new asset.');
       return;
     }
+    if (trimmedNewAssetName.length > 30) {
+      setAddError('Asset name must not exceed 30 characters.');
+      return;
+    }
     if (!validNameRegex.test(trimmedNewAssetName)) {
-      setAddError('Asset Name can only contain letters, digits, spaces, and underscores.');
+      setAddError('Asset name must start with a letter and contain only letters, digits, spaces, or underscores.');
       return;
     }
     setAddError('');
@@ -457,44 +471,47 @@ const handleDrop = (targetNode) => {
 
   // Child asset handling
   const handleAddChild = async () => {
-  if (!isAdmin) {
-    setChildAddError('Only Admins can add child assets');
-    return;
-  }
-  const trimmedChildName = childName.trim();
-  if (!trimmedChildName) {
-    setChildAddError('Please enter a name for the new child asset.');
-    return;
-  }
-  if (!validNameRegex.test(trimmedChildName)) {
-    setChildAddError('Asset Name can only contain letters, digits, spaces, and underscores.');
-    return;
-  }
-  setChildAddError('');
-
-  if (focusedNode) {
-    try {
-      const msg = await addChildNode(trimmedChildName, focusedNode.node.id);
-      setActionMessage(msg);
-      setChildName('');
-      setShowAddChildModal(false);
-      // Fetch the updated hierarchy
-      const updatedTreeData = await fetchHierarchy();
-      setTreeData(updatedTreeData);
-      setAssetMap(buildAssetMap(updatedTreeData));
-      // Update focusedNode with the updated node data
-      const updatedNode = findNodeAndParent(updatedTreeData, focusedNode.node.id);
-      if (updatedNode) {
-        setFocusedNode(updatedNode);
-      } else {
-        setActionMessage('Failed to refresh focused node.');
-      }
-      setRefreshKey((prev) => prev + 1);
-    } catch (err) {
-      setChildAddError(err.message || 'Failed to add child asset.');
+    if (!isAdmin) {
+      setChildAddError('Only Admins can add child assets');
+      return;
     }
-  }
-};
+    const trimmedChildName = childName.trim();
+    if (!trimmedChildName) {
+      setChildAddError('Please enter a name for the new child asset.');
+      return;
+    }
+    if (trimmedChildName.length > 30) {
+      setChildAddError('Asset name must not exceed 30 characters.');
+      return;
+    }
+    if (!validNameRegex.test(trimmedChildName)) {
+      setChildAddError('Asset name must start with a letter and contain only letters, digits, spaces, or underscores.');
+      return;
+    }
+    setChildAddError('');
+
+    if (focusedNode) {
+      try {
+        const msg = await addChildNode(trimmedChildName, focusedNode.node.id);
+        setActionMessage(msg);
+        setChildName('');
+        setShowAddChildModal(false);
+        const updatedTreeData = await fetchHierarchy();
+        setTreeData(updatedTreeData);
+        setAssetMap(buildAssetMap(updatedTreeData));
+        const updatedNode = findNodeAndParent(updatedTreeData, focusedNode.node.id);
+        if (updatedNode) {
+          setFocusedNode(updatedNode);
+        } else {
+          setActionMessage('Failed to refresh focused node.');
+        }
+        setRefreshKey((prev) => prev + 1);
+      } catch (err) {
+        setChildAddError(err.message || 'Failed to add child asset.');
+      }
+    }
+  };
+
   const handleAddChildModalCancel = () => {
     setShowAddChildModal(false);
     setChildName('');
@@ -559,8 +576,12 @@ const handleDrop = (targetNode) => {
         setActionMessage('Please enter a name for the asset.');
         return;
       }
+      if (trimmedEditName.length > 30) {
+        setActionMessage('Asset name must not exceed 30 characters.');
+        return;
+      }
       if (!validNameRegex.test(trimmedEditName)) {
-        setActionMessage('Asset Name can only contain letters, digits, spaces, and underscores.');
+        setActionMessage('Asset name must start with a letter and contain only letters, digits, spaces, or underscores.');
         return;
       }
 
@@ -594,7 +615,7 @@ const handleDrop = (targetNode) => {
       return;
     }
     if (!validNameRegex.test(trimmedSearchName)) {
-      setActionMessage('Search Name can only contain letters, digits, spaces, and underscores.');
+      setActionMessage('Search name must start with a letter and contain only letters, digits, spaces, or underscores.');
       return;
     }
 
@@ -618,6 +639,7 @@ const handleDrop = (targetNode) => {
     }
     setSearchName('');
     setSuggestions([]);
+    setSelectedSuggestionIndex(-1); // Reset selected suggestion
   };
 
   // File handling
@@ -672,6 +694,7 @@ const handleDrop = (targetNode) => {
   const handleSearchInput = (e) => {
     const value = e.target.value;
     setSearchName(value);
+    setSelectedSuggestionIndex(-1); // Reset selected suggestion when typing
 
     if (value.trim() === '') {
       setSuggestions([]);
@@ -686,9 +709,43 @@ const handleDrop = (targetNode) => {
     setSuggestions(results.map((r) => r.item));
   };
 
-  const handleSuggestionClick = (suggestion) => {
+  const handleKeyDown = (e) => {
+    if (suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) => {
+        const nextIndex = Math.min(prev + 1, suggestions.length - 1);
+        setSearchName(suggestions[nextIndex].name);
+        return nextIndex;
+      });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) => {
+        const nextIndex = Math.max(prev - 1, -1);
+        setSearchName(nextIndex === -1 ? '' : suggestions[nextIndex].name);
+        return nextIndex;
+      });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.length) {
+        // Select the highlighted suggestion
+        const selectedSuggestion = suggestions[selectedSuggestionIndex];
+        setSearchName(selectedSuggestion.name);
+        setSuggestions([]);
+        setSelectedSuggestionIndex(-1);
+        handleNodeClick(selectedSuggestion.id);
+      } else {
+        // Perform regular search with current input
+        handleSearch(searchName);
+      }
+    }
+  };
+
+  const handleSuggestionClick = (suggestion, index) => {
     setSearchName(suggestion.name);
     setSuggestions([]);
+    setSelectedSuggestionIndex(-1);
     handleNodeClick(suggestion.id);
   };
 
@@ -743,10 +800,9 @@ const handleDrop = (targetNode) => {
             <p className="userName">{userName || 'Unknown User'}</p>
           </div>
           <div className="json-buttons">
-
             {isAdmin && (
               <>
-               <img
+                <img
                   src={infoIcon}
                   alt="Info"
                   className="info-icon"
@@ -754,7 +810,6 @@ const handleDrop = (targetNode) => {
                   title='JSON Format Info'
                   style={{ width: '25px', height: '25px', cursor: 'pointer', color: 'white' }}
                 />
-
                 <label htmlFor="upload-input" className="json-button import-button">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -806,6 +861,7 @@ const handleDrop = (targetNode) => {
               className="search-input"
               value={searchName}
               onChange={handleSearchInput}
+              onKeyDown={handleKeyDown}
             />
             <button onClick={() => handleSearch(searchName)} className="search-button">
               <svg
@@ -826,7 +882,11 @@ const handleDrop = (targetNode) => {
             {suggestions.length > 0 && (
               <ul className="search-suggestions">
                 {suggestions.map((s, i) => (
-                  <li key={i} onClick={() => handleSuggestionClick(s)} className="suggestion-item">
+                  <li
+                    key={i}
+                    onClick={() => handleSuggestionClick(s, i)}
+                    className={`suggestion-item ${i === selectedSuggestionIndex ? 'selected' : ''}`}
+                  >
                     {s.name} (ID: {s.id})
                   </li>
                 ))}
@@ -961,7 +1021,14 @@ const handleDrop = (targetNode) => {
                     <input
                       type="text"
                       value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value.length <= 30) {
+                          setEditName(value);
+                        } else {
+                          setActionMessage('Asset name must not exceed 30 characters.');
+                        }
+                      }}
                       className="edit-input"
                       autoFocus
                       placeholder="Enter asset name..."
@@ -1012,14 +1079,15 @@ const handleDrop = (targetNode) => {
                       </div>
                       {isAdmin && (
                         <div className="signal-actions">
-                        <button className="signal-button average" title="Average Value">
-                          <img src={Average} 
-                          alt="Average"
-                          width={20} 
-                          height={20}
-                          onClick={() => handleAverageClick(signal.signalId)}
-                          />
-                        </button>
+                          <button className="signal-button average" title="Average Value">
+                            <img
+                              src={Average}
+                              alt="Average"
+                              width={20}
+                              height={20}
+                              onClick={() => handleAverageClick(signal.signalId)}
+                            />
+                          </button>
                           <button
                             className="signal-button edit"
                             aria-label="Edit Signal"
@@ -1058,138 +1126,138 @@ const handleDrop = (targetNode) => {
           </div>
         </div>
 
-       {/* Notification Bell and Panel */}
-<div className="notification-bell-container">
-  <button
-    className="notification-bell"
-    onClick={() => setShowNotifications(!showNotifications)}
-    aria-label="Toggle Notifications"
-  >
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-      <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-    </svg>
-    {notifications.length > 0 && (
-      <span className="notification-badge">{notifications.length}</span>
-    )}
-  </button>
-  {showNotifications && (
-    <div className="notification-panel">
-      <div className="notification-header">
-        <h3>Notifications</h3>
-        {notifications.length > 0 && (
+        {/* Notification Bell and Panel */}
+        <div className="notification-bell-container">
           <button
-            className="clear-all-button"
-            onClick={() => setNotifications([])}
-            aria-label="Clear All Notifications"
+            className="notification-bell"
+            onClick={() => setShowNotifications(!showNotifications)}
+            aria-label="Toggle Notifications"
           >
-            Clear All
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            {notifications.length > 0 && (
+              <span className="notification-badge">{notifications.length}</span>
+            )}
           </button>
-        )}
-      </div>
-      <div className="notification-list">
-        {notifications.length > 0 ? (
-          notifications.map((notification) => (
-            <div key={notification.id} className="notification">
-              <p>{notification.message}</p>
-              <span className="notification-timestamp">{notification.timestamp}</span>
-              <button
-                className="notification-close"
-                onClick={() =>
-                  setNotifications((prev) =>
-                    prev.filter((n) => n.id !== notification.id)
-                  )
-                }
-                aria-label="Close Notification"
-              >
-                ✕
-              </button>
+          {showNotifications && (
+            <div className="notification-panel">
+              <div className="notification-header">
+                <h3>Notifications</h3>
+                {notifications.length > 0 && (
+                  <button
+                    className="clear-all-button"
+                    onClick={() => setNotifications([])}
+                    aria-label="Clear All Notifications"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+              <div className="notification-list">
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <div key={notification.id} className="notification">
+                      <p>{notification.message}</p>
+                      <span className="notification-timestamp">{notification.timestamp}</span>
+                      <button
+                        className="notification-close"
+                        onClick={() =>
+                          setNotifications((prev) =>
+                            prev.filter((n) => n.id !== notification.id)
+                          )
+                        }
+                        aria-label="Close Notification"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="no-notifications">No notifications</p>
+                )}
+              </div>
             </div>
-          ))
-        ) : (
-          <p className="no-notifications">No notifications</p>
-        )}
-      </div>
-    </div>
-  )}
-</div>
-
-       {/* Info Modal */}
-      {showInfoModal && (
-  <div className="modal-overlay">
-    <div className="info-modal" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
-      <div className="info-modal-header">
-        <h2 id="infoModalTitle" className="text-2xl font-bold">JSON Upload Instructions</h2>
-        <button
-          className="modal-close-button"
-          onClick={handleInfoModalClose}
-          aria-label="Close modal"
-        >
-          ✕
-        </button>
-      </div>
-      <div className="info-modal-content">
-        <div className="card shadow-lg p-4 space-y-3">
-          <h3 className="text-xl font-semibold">⚠️ Guidelines</h3>
-          <ul className="list-disc pl-6 space-y-2 text-gray-700">
-            <li>All keys (<code>Id</code>, <code>Name</code>, <code>ParentId</code>, <code>Children</code>, <code>Signals</code>, etc.) <b>must be present</b>.</li>
-            <li>No special characters allowed in <b>keys or values</b> (only letters, numbers, and underscores).</li>
-            <li>Duplicate keys are <b>not allowed</b>.</li>
-          </ul>
+          )}
         </div>
-        <div className="card shadow-lg p-4 space-y-3 mt-4">
-          <h3 className="text-xl font-semibold">📄 Example JSON</h3>
-          <div className="scroll-area h-64 rounded-md border p-3 bg-gray-900 text-green-400 text-sm font-mono">
-            <pre>{exampleJson}</pre>
+
+        {/* Info Modal */}
+        {showInfoModal && (
+          <div className="modal-overlay">
+            <div className="info-modal" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
+              <div className="info-modal-header">
+                <h2 id="infoModalTitle" className="text-2xl font-bold">JSON Upload Instructions</h2>
+                <button
+                  className="modal-close-button"
+                  onClick={handleInfoModalClose}
+                  aria-label="Close modal"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="info-modal-content">
+                <div className="card shadow-lg p-4 space-y-3">
+                  <h3 className="text-xl font-semibold">⚠️ Guidelines</h3>
+                  <ul className="list-disc pl-6 space-y-2 text-gray-700">
+                    <li>All keys (<code>Id</code>, <code>Name</code>, <code>ParentId</code>, <code>Children</code>, <code>Signals</code>, etc.) <b>must be present</b>.</li>
+                    <li>Names must start with a letter, contain only letters, numbers, spaces, or underscores, and be up to 30 characters.</li>
+                    <li>Signal descriptions must not exceed 200 characters.</li>
+                    <li>Duplicate keys are <b>not allowed</b>.</li>
+                  </ul>
+                </div>
+                <div className="card shadow-lg p-4 space-y-3 mt-4">
+                  <h3 className="text-xl font-semibold">📄 Example JSON</h3>
+                  <div className="scroll-area h-64 rounded-md border p-3 bg-gray-900 text-green-400 text-sm font-mono">
+                    <pre>{exampleJson}</pre>
+                  </div>
+                </div>
+              </div>
+              <div className="info-modal-footer">
+                <div className="left-buttons">
+                  <button
+                    className="modal-btn copy"
+                    onClick={() => navigator.clipboard.writeText(exampleJson)}
+                    aria-label="Copy example JSON"
+                  >
+                    Copy
+                  </button>
+                  <button
+                    className="modal-btn download"
+                    onClick={() => {
+                      const blob = new Blob([exampleJson], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'example.json';
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    aria-label="Download example JSON"
+                  >
+                    Download
+                  </button>
+                </div>
+                <button
+                  className="modal-btn confirm"
+                  onClick={handleInfoModalClose}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-   <div className="info-modal-footer">
-  <div className="left-buttons">
-    <button
-      className="modal-btn copy"
-      onClick={() => navigator.clipboard.writeText(exampleJson)}
-      aria-label="Copy example JSON"
-    >
-      Copy
-    </button>
-    <button
-      className="modal-btn download"
-      onClick={() => {
-        const blob = new Blob([exampleJson], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'example.json';
-        a.click();
-        URL.revokeObjectURL(url);
-      }}
-      aria-label="Download example JSON"
-    >
-      Download
-    </button>
-  </div>
-
-  <button
-    className="modal-btn confirm"
-    onClick={handleInfoModalClose}
-  >
-    Close
-  </button>
-</div>
-    </div>
-  </div>
-)}
+        )}
 
         {/* Add Signal Modal */}
         {showAddSignalModal && isAdmin && (
@@ -1205,6 +1273,7 @@ const handleDrop = (targetNode) => {
                 value={signalForm.signalName}
                 onChange={handleSignalInputChange}
                 autoFocus
+                maxLength={30}
               />
               <label htmlFor="signalType">Signal Type</label>
               <select
@@ -1223,6 +1292,7 @@ const handleDrop = (targetNode) => {
                 placeholder="Enter signal description (optional)"
                 value={signalForm.description}
                 onChange={handleSignalInputChange}
+                maxLength={200}
               />
               {signalError && <div className="modal-error">{signalError}</div>}
               <div className="modal-actions">
@@ -1249,8 +1319,17 @@ const handleDrop = (targetNode) => {
                 type="text"
                 placeholder="Enter asset name..."
                 value={newAssetName}
-                onChange={(e) => setNewAssetName(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value.length <= 30) {
+                    setNewAssetName(value);
+                    setAddError('');
+                  } else {
+                    setAddError('Asset name must not exceed 30 characters.');
+                  }
+                }}
                 className="modal-input"
+                maxLength={30}
               />
               {addError && <div className="modal-error">{addError}</div>}
               <div className="modal-actions">
@@ -1274,8 +1353,17 @@ const handleDrop = (targetNode) => {
                 type="text"
                 placeholder="Enter child asset name..."
                 value={childName}
-                onChange={(e) => setChildName(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value.length <= 30) {
+                    setChildName(value);
+                    setChildAddError('');
+                  } else {
+                    setChildAddError('Asset name must not exceed 30 characters.');
+                  }
+                }}
                 className="modal-input"
+                maxLength={30}
               />
               {childAddError && <div className="modal-error">{childAddError}</div>}
               <div className="modal-actions">
