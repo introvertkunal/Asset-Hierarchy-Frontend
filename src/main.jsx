@@ -52,6 +52,23 @@ const Root = () => {
     }, refreshTime);
   };
 
+  // Handle logout on application close
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      try {
+        await api.post('/auth/logout');
+      } catch (err) {
+        console.error('Logout on close error:', err);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
   useEffect(() => {
     const interceptor = api.interceptors.response.use(
       (response) => response,
