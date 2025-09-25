@@ -116,12 +116,13 @@ const Root = () => {
           scheduleTokenRefresh();
         } else {
           dispatch(clearUser());
+          navigate('/auth', { replace: true });
         }
       } catch (err) {
         console.error('Error fetching current user:', err);
         dispatch(clearUser());
+        navigate('/auth', { replace: true });
       } finally {
-        // ✅ always stop loading, even if request fails
         dispatch(setLoading(false));
       }
     };
