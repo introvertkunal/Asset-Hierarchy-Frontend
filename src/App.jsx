@@ -8,7 +8,6 @@ import './App.css';
 import TreeNode from './components/TreeNode.jsx';
 import FilteredTreeNode from './components/FilteredTreeNode.jsx';
 import FocusedNodeView from './components/FocusedNodeView.jsx';
-import useMessageTimeout from './hooks/useMessageTimeout.js';
 import { filterTree, findNodeAndParent, buildAssetMap, countAssets } from './Utils/treeUtils.js';
 import './panels/searchbar.css';
 import './panels/leftpaneltree.css';
@@ -18,20 +17,21 @@ import { fetchSignalsByAssetId, addSignal, removeSignal, updateSignal, AverageSi
 import Fuse from 'fuse.js';
 import infoIcon from "./info.png";
 import Average from "./average.png";
+import { ToastContainer, toast } from 'react-toastify'; // Import react-toastify
+import 'react-toastify/dist/ReactToastify.css'; // Import toastify CSS
 
 function App() {
   const dispatch = useDispatch();
   const { userName, roles } = useSelector((state) => state.auth);
 
-  // Essential states
+  // Essential states (removed actionMessage and useMessageTimeout)
   const [refreshKey, setRefreshKey] = useState(0);
   const [treeData, setTreeData] = useState(null);
   const [searchName, setSearchName] = useState('');
-  const [actionMessage, setActionMessage] = useMessageTimeout('');
   const [expanded, setExpanded] = useState({});
   const [assetMap, setAssetMap] = useState(new Map());
   const [suggestions, setSuggestions] = useState([]);
-  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1); // New state for selected suggestion
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const [focusedNode, setFocusedNode] = useState(null);
   const [showFocusedView, setShowFocusedView] = useState(false);
   const [filteredTreeData, setFilteredTreeData] = useState(null);
@@ -61,7 +61,7 @@ function App() {
   const [signalToDelete, setSignalToDelete] = useState(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
 
-  // Validation regex: starts with letter, followed by letters, digits, spaces, or underscores
+  // Validation regex
   const validNameRegex = /^[a-zA-Z][a-zA-Z0-9 _]*$/;
 
   // Check if user is Admin
@@ -82,11 +82,14 @@ function App() {
         ...prev,
         { id, message, timestamp: new Date().toLocaleTimeString() },
       ]);
+      if(message.trim().startsWith('Average')){
+      toast.info(message); // Show notification as toast
+      }
     });
 
     connection.start()
       .then(() => console.log('SignalR Connected'))
-      .catch((err) => console.error('SignalR Connection Error: ', err));
+      .catch((err) => toast.error('SignalR Connection Error: ' + err.message));
 
     return () => {
       connection.stop();
@@ -100,7 +103,7 @@ function App() {
       setTreeData(data);
       setAssetMap(buildAssetMap(data));
     } catch (err) {
-      setActionMessage(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -119,7 +122,7 @@ function App() {
       dispatch(clearUser());
       window.location.href = '/login';
     } catch (err) {
-      setActionMessage(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -134,6 +137,7 @@ function App() {
       setSignals(data);
     } catch (err) {
       setSignals([]);
+      
     }
     setLoadingSignals(false);
   }, [focusedNode]);
@@ -187,14 +191,14 @@ function App() {
 
   const handleAverageClick = async (signalId) => {
     if (!isAdmin) {
-      setActionMessage('Only Admins can set average values');
+      toast.error('Only Admins can set average values');
       return;
     }
     try {
       const msg = await AverageSignal(signalId);
-      setActionMessage(msg);
+      toast.success(msg);
     } catch (err) {
-      setActionMessage(err.message || 'Failed to calculate average');
+      toast.error(err.message || 'Failed to calculate average');
     }
   };
 
@@ -213,7 +217,7 @@ function App() {
         Description: signalForm.description.trim(),
       };
       const msg = await addSignal(focusedNode.node.id, newSignal);
-      setActionMessage(msg);
+      toast.success(msg);
       setShowAddSignalModal(false);
       setSignalForm({ signalName: '', signalType: 'Integer', description: '' });
       loadSignals();
@@ -233,7 +237,7 @@ function App() {
   // Remove signal with modal confirmation
   const handleRemoveSignal = (signalId) => {
     if (!isAdmin) {
-      setActionMessage('Only Admins can delete signals');
+      toast.error('Only Admins can delete signals');
       return;
     }
     setSignalToDelete(signalId);
@@ -244,12 +248,12 @@ function App() {
     if (!isAdmin || !signalToDelete) return;
     try {
       const msg = await removeSignal(signalToDelete);
-      setActionMessage(msg);
+      toast.success(msg);
       setShowDeleteSignalModal(false);
       setSignalToDelete(null);
       loadSignals();
     } catch (err) {
-      setActionMessage(err.message);
+      toast.error(err.message);
       setShowDeleteSignalModal(false);
       setSignalToDelete(null);
     }
@@ -258,12 +262,12 @@ function App() {
   const handleDeleteSignalCancel = () => {
     setShowDeleteSignalModal(false);
     setSignalToDelete(null);
-    setActionMessage('Signal deletion cancelled.');
+    toast.info('Signal deletion cancelled.');
   };
 
   const handleEditSignalClick = (signal) => {
     if (!isAdmin) {
-      setActionMessage('Only Admins can edit signals');
+      toast.error('Only Admins can edit signals');
       return;
     }
     setEditSignal(signal);
@@ -297,7 +301,7 @@ function App() {
         updatedSignal
       );
 
-      setActionMessage(msg);
+      toast.success(msg);
       setShowAddSignalModal(false);
       setEditSignal(null);
       setSignalForm({ signalName: '', signalType: 'Integer', description: '' });
@@ -327,13 +331,12 @@ function App() {
     if (result) {
       setFocusedNode(result);
       setShowFocusedView(true);
-      setActionMessage('');
       setEditMode(false);
       setEditName(result.node.name);
     } else {
       setFocusedNode(null);
       setShowFocusedView(false);
-      setActionMessage('Asset not found.');
+      toast.error('Asset not found.');
     }
   };
 
@@ -355,7 +358,7 @@ function App() {
 
   const handleDragStart = (node) => {
     if (!node) {
-      setActionMessage('Invalid node selected for dragging.');
+      toast.error('Invalid node selected for dragging.');
       return;
     }
     setDraggedNode(node);
@@ -363,37 +366,37 @@ function App() {
 
   const handleDrop = (targetNode) => {
     if (!isAdmin) {
-      setActionMessage('Only Admins can reorder assets.');
+      toast.error('Only Admins can reorder assets.');
       setDraggedNode(null);
       return;
     }
 
     if (draggedNode.parentId === targetNode.id) {
-      setActionMessage('Node already exists under this parent.');
+      toast.error('Node already exists under this parent.');
       setDraggedNode(null);
       return;
     }
 
     if (!draggedNode || !targetNode) {
-      setActionMessage('Invalid drag or drop target.');
+      toast.error('Invalid drag or drop target.');
       setDraggedNode(null);
       return;
     }
 
     if (draggedNode.id === targetNode.id) {
-      setActionMessage('Cannot drop a node onto itself.');
+      toast.error('Cannot drop a node onto itself.');
       setDraggedNode(null);
       return;
     }
 
     if (isDescendant(draggedNode, targetNode, treeData)) {
-      setActionMessage('Not allowed - Cannot make a parent a child of its descendant.');
+      toast.error('Not allowed - Cannot make a parent a child of its descendant.');
       setDraggedNode(null);
       return;
     }
 
     if (isDescendant(targetNode, draggedNode, treeData)) {
-      setActionMessage('Not allowed - Cannot make a child a parent of its ancestor.');
+      toast.error('Not allowed - Cannot make a child a parent of its ancestor.');
       setDraggedNode(null);
       return;
     }
@@ -404,19 +407,19 @@ function App() {
 
   const handleReorderConfirm = async () => {
     if (!isAdmin) {
-      setActionMessage('Only Admins can reorder assets');
+      toast.error('Only Admins can reorder assets');
       setShowReorderModal(false);
       return;
     }
     try {
       const msg = await reorderAsset(draggedNode.id, dropTarget.id);
-      setActionMessage(msg);
+      toast.success(msg);
       setShowReorderModal(false);
       setDraggedNode(null);
       setDropTarget(null);
       setRefreshKey((prev) => prev + 1);
     } catch (err) {
-      setActionMessage(err.message);
+      toast.error(err.message);
       setShowReorderModal(false);
       setDraggedNode(null);
       setDropTarget(null);
@@ -427,7 +430,7 @@ function App() {
     setShowReorderModal(false);
     setDraggedNode(null);
     setDropTarget(null);
-    setActionMessage('Reorder cancelled.');
+    toast.info('Reorder cancelled.');
   };
 
   // Root asset handling
@@ -453,7 +456,7 @@ function App() {
 
     try {
       const msg = await addRoot(trimmedNewAssetName, null);
-      setActionMessage(msg);
+      toast.success(msg);
       setNewAssetName('');
       setShowAddModal(false);
       setRefreshKey((prev) => prev + 1);
@@ -493,7 +496,7 @@ function App() {
     if (focusedNode) {
       try {
         const msg = await addChildNode(trimmedChildName, focusedNode.node.id);
-        setActionMessage(msg);
+        toast.success(msg);
         setChildName('');
         setShowAddChildModal(false);
         const updatedTreeData = await fetchHierarchy();
@@ -503,7 +506,7 @@ function App() {
         if (updatedNode) {
           setFocusedNode(updatedNode);
         } else {
-          setActionMessage('Failed to refresh focused node.');
+          toast.error('Failed to refresh focused node.');
         }
         setRefreshKey((prev) => prev + 1);
       } catch (err) {
@@ -521,7 +524,7 @@ function App() {
   // Delete handling
   const handleDeleteClick = () => {
     if (!isAdmin) {
-      setActionMessage('Only Admins can delete assets');
+      toast.error('Only Admins can delete assets');
       return;
     }
     if (focusedNode) {
@@ -531,32 +534,32 @@ function App() {
 
   const handleDeleteConfirm = async () => {
     if (!isAdmin) {
-      setActionMessage('Only Admins can delete assets');
+      toast.error('Only Admins can delete assets');
       return;
     }
     setShowDeleteModal(false);
     if (focusedNode) {
       try {
         const msg = await removeAsset(focusedNode.node.id);
-        setActionMessage(msg);
+        toast.success(msg);
         setFocusedNode(null);
         setShowFocusedView(false);
         setRefreshKey((prev) => prev + 1);
       } catch (err) {
-        setActionMessage(err.message);
+        toast.error(err.message);
       }
     }
   };
 
   const handleDeleteCancel = () => {
     setShowDeleteModal(false);
-    setActionMessage('Asset deletion cancelled.');
+    toast.info('Asset deletion cancelled.');
   };
 
   // Edit handling
   const handleEditClick = () => {
     if (!isAdmin) {
-      setActionMessage('Only Admins can edit assets');
+      toast.error('Only Admins can edit assets');
       return;
     }
     if (focusedNode) {
@@ -567,27 +570,27 @@ function App() {
 
   const handleEditSave = async () => {
     if (!isAdmin) {
-      setActionMessage('Only Admins can edit assets');
+      toast.error('Only Admins can edit assets');
       return;
     }
     if (focusedNode) {
       const trimmedEditName = editName.trim();
       if (!trimmedEditName) {
-        setActionMessage('Please enter a name for the asset.');
+        toast.error('Please enter a name for the asset.');
         return;
       }
       if (trimmedEditName.length > 30) {
-        setActionMessage('Asset name must not exceed 30 characters.');
+        toast.error('Asset name must not exceed 30 characters.');
         return;
       }
       if (!validNameRegex.test(trimmedEditName)) {
-        setActionMessage('Asset name must start with a letter and contain only letters, digits, spaces, or underscores.');
+        toast.error('Asset name must start with a letter and contain only letters, digits, spaces, or underscores.');
         return;
       }
 
       try {
         const msg = await updateAsset(focusedNode.node.id, trimmedEditName);
-        setActionMessage(msg);
+        toast.success(msg);
         setEditMode(false);
         setFocusedNode((prev) => ({
           node: { ...prev.node, name: trimmedEditName },
@@ -595,7 +598,7 @@ function App() {
         }));
         setRefreshKey((prev) => prev + 1);
       } catch (err) {
-        setActionMessage(err.message);
+        toast.error(err.message);
       }
     }
   };
@@ -603,7 +606,7 @@ function App() {
   const handleEditCancel = () => {
     setEditMode(false);
     setEditName(focusedNode?.node.name || '');
-    setActionMessage('Edit cancelled.');
+    toast.info('Edit cancelled.');
   };
 
   // Search handling
@@ -611,11 +614,11 @@ function App() {
     const trimmedSearchName = searchTerm.trim();
 
     if (!trimmedSearchName) {
-      setActionMessage('Please enter a name to search.');
+      toast.error('Please enter a name to search.');
       return;
     }
     if (!validNameRegex.test(trimmedSearchName)) {
-      setActionMessage('Search name must start with a letter and contain only letters, digits, spaces, or underscores.');
+      toast.error('Search name must start with a letter and contain only letters, digits, spaces, or underscores.');
       return;
     }
 
@@ -631,21 +634,20 @@ function App() {
         parent: { name: result.parentName },
       });
       setShowFocusedView(true);
-      setActionMessage('');
     } catch (err) {
       setFocusedNode(null);
       setShowFocusedView(false);
-      setActionMessage(err.message);
+      toast.error(err.message);
     }
     setSearchName('');
     setSuggestions([]);
-    setSelectedSuggestionIndex(-1); // Reset selected suggestion
+    setSelectedSuggestionIndex(-1);
   };
 
   // File handling
   const handleUpload = async (e) => {
     if (!isAdmin) {
-      setActionMessage('Only Admins can upload files');
+      toast.error('Only Admins can upload files');
       return;
     }
     const file = e.target.files[0];
@@ -654,15 +656,15 @@ function App() {
     try {
       const text = await file.text();
       if (!text.trim()) {
-        setActionMessage('File is empty');
+        toast.error('File is empty');
         setTimeout(() => { window.location.reload(); }, 1000);
         return;
       }
       const msg = await replaceFile(file);
-      setActionMessage(msg);
+      toast.success(msg);
       setTimeout(() => { window.location.reload(); }, 1000);
     } catch (err) {
-      setActionMessage(err.message);
+      toast.error(err.message);
       setTimeout(() => { window.location.reload(); }, 1000);
     }
   };
@@ -677,7 +679,7 @@ function App() {
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setActionMessage(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -694,7 +696,7 @@ function App() {
   const handleSearchInput = (e) => {
     const value = e.target.value;
     setSearchName(value);
-    setSelectedSuggestionIndex(-1); // Reset selected suggestion when typing
+    setSelectedSuggestionIndex(-1);
 
     if (value.trim() === '') {
       setSuggestions([]);
@@ -729,14 +731,12 @@ function App() {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.length) {
-        // Select the highlighted suggestion
         const selectedSuggestion = suggestions[selectedSuggestionIndex];
         setSearchName(selectedSuggestion.name);
         setSuggestions([]);
         setSelectedSuggestionIndex(-1);
         handleNodeClick(selectedSuggestion.id);
       } else {
-        // Perform regular search with current input
         handleSearch(searchName);
       }
     }
@@ -794,6 +794,18 @@ function App() {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="app-container">
+        <ToastContainer
+          position="top-right"
+          autoClose={4000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
         <div className="header-container">
           <div className="header-left">
             <button onClick={handleLogout} className="logout-button">Logout</button>
@@ -894,7 +906,6 @@ function App() {
             )}
           </div>
         </div>
-        {actionMessage && <div className="search-message">{actionMessage}</div>}
 
         <div className="main-content">
           <div className="left-panel">
@@ -1026,7 +1037,7 @@ function App() {
                         if (value.length <= 30) {
                           setEditName(value);
                         } else {
-                          setActionMessage('Asset name must not exceed 30 characters.');
+                          toast.error('Asset name must not exceed 30 characters.');
                         }
                       }}
                       className="edit-input"

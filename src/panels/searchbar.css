@@ -181,26 +181,8 @@
   height: 100%;
 }
 
-/* Update action message styling */
-.action-message {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: calc(100% + 10px);
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
-  border: 1px solid #fc8181;
-  border-radius: 12px;
-  color: #742a2a;
-  font-weight: 500;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  box-shadow: 0 4px 12px rgba(229, 62, 62, 0.1);
-  width: max-content;
-  max-width: 100px;
-  text-align: center;
-  z-index: 4000;
-}
+
+
 
 /* Import button */
 .import-button {
