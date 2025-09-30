@@ -21,12 +21,10 @@ const Root = () => {
   const retryQueue = useRef([]);
   const tokenExpirationTimeout = useRef(null);
 
-  // Function to schedule token refresh
   const scheduleTokenRefresh = (expiresIn = 10 * 60 * 1000) => {
     if (tokenExpirationTimeout.current) {
       clearTimeout(tokenExpirationTimeout.current);
     }
-
     const refreshTime = expiresIn - 30 * 1000;
     tokenExpirationTimeout.current = setTimeout(async () => {
       try {
@@ -80,16 +78,17 @@ const Root = () => {
               );
 
               retryQueue.current.forEach(({ resolve, originalRequest }) => {
+                originalRequest._retry = true;
                 resolve(api(originalRequest));
               });
               retryQueue.current = [];
 
               scheduleTokenRefresh();
-
               return api(originalRequest);
             }
           } catch (refreshError) {
             dispatch(clearUser());
+            dispatch(setLoading(false));
             retryQueue.current.forEach(({ reject }) => reject(refreshError));
             retryQueue.current = [];
             navigate('/auth', { replace: true });
@@ -116,12 +115,13 @@ const Root = () => {
           scheduleTokenRefresh();
         } else {
           dispatch(clearUser());
+          navigate('/auth', { replace: true });
         }
       } catch (err) {
         console.error('Error fetching current user:', err);
         dispatch(clearUser());
+        navigate('/auth', { replace: true });
       } finally {
-        // ✅ always stop loading, even if request fails
         dispatch(setLoading(false));
       }
     };
@@ -136,19 +136,21 @@ const Root = () => {
     };
   }, [dispatch, navigate]);
 
-  const handleLogout = async () => {
-    try {
-      await api.post('/auth/logout');
-    } catch (err) {
-      console.error('Logout error:', err);
-    } finally {
-      dispatch(clearUser());
-      if (tokenExpirationTimeout.current) {
-        clearTimeout(tokenExpirationTimeout.current);
-      }
-      navigate('/auth', { replace: true });
+ const handleLogout = async () => {
+  dispatch(setLoading(true)); // Set loading at the start
+  try {
+    await api.post('/auth/logout');
+  } catch (err) {
+    console.error('Logout error:', err);
+  } finally {
+    if (tokenExpirationTimeout.current) {
+      clearTimeout(tokenExpirationTimeout.current);
     }
-  };
+    dispatch(clearUser());
+    dispatch(setLoading(false)); // Clear loading after clearing user
+    navigate('/auth', { replace: true });
+  }
+};
 
   return (
     <Routes>
@@ -162,7 +164,14 @@ const Root = () => {
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/auth" />} />
+      <Route
+        path="*"
+        element={
+          <ProtectedRoute>
+            <Navigate to="/" />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 };

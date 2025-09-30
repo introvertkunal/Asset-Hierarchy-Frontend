@@ -120,7 +120,7 @@ function App() {
       });
       console.log('Logout response:', response.json());
       dispatch(clearUser());
-      window.location.href = '/login';
+      window.location.href = '/Auth';
     } catch (err) {
       toast.error(err.message);
     }
