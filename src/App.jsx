@@ -70,7 +70,7 @@ function App() {
   // SignalR connection setup
   useEffect(() => {
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl('https://localhost:7036/notificationHub', {
+      .withUrl('https://localhost:7204/notificationHub', {
         withCredentials: true,
       })
       .configureLogging(signalR.LogLevel.Information)
@@ -114,7 +114,7 @@ function App() {
   // Handle logout
   const handleLogout = async () => {
     try {
-      const response = await fetch('https://localhost:7036/api/auth/logout', {
+      const response = await fetch('https://localhost:7204/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });

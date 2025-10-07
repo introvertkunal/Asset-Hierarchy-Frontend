@@ -9,7 +9,7 @@ import axios from 'axios';
 
 
 const api = axios.create({
-  baseURL: 'https://localhost:7036/api',
+  baseURL: 'https://localhost:7204/api',
   withCredentials: true, 
 });
 
@@ -179,7 +179,7 @@ const AuthPage = () => {
 
   const handleExternalLogin = (provider) => {
     const redirectUrl = `${window.location.origin}/auth/callback`;
-    window.location.href = `https://localhost:7036/api/auth/externallogin?provider=${provider}&returnUrl=${encodeURIComponent(redirectUrl)}`;
+    window.location.href = `https://localhost:7204/api/auth/externallogin?provider=${provider}&returnUrl=${encodeURIComponent(redirectUrl)}`;
   };
 
   const toggleAuthMode = () => {

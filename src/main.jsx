@@ -10,7 +10,7 @@ import App from './App.jsx';
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://localhost:7036/api',
+  baseURL: 'https://localhost:7204/api',
   withCredentials: true,
 });
 
@@ -20,16 +20,22 @@ const Root = () => {
   const isRefreshing = useRef(false);
   const retryQueue = useRef([]);
   const tokenExpirationTimeout = useRef(null);
+  const isInitializing = useRef(true);
 
   const scheduleTokenRefresh = (expiresIn = 10 * 60 * 1000) => {
     if (tokenExpirationTimeout.current) {
       clearTimeout(tokenExpirationTimeout.current);
     }
-    const refreshTime = expiresIn - 30 * 1000;
+    
+    const refreshTime = Math.max(expiresIn - 30 * 1000, 1000);
+    
     tokenExpirationTimeout.current = setTimeout(async () => {
+      if (isRefreshing.current) return;
+      
       try {
         isRefreshing.current = true;
         const refreshResponse = await api.post('/auth/refresh');
+        
         if (refreshResponse.status === 200) {
           const userResponse = await api.get('/auth/me');
           dispatch(
@@ -41,7 +47,7 @@ const Root = () => {
           scheduleTokenRefresh();
         }
       } catch (error) {
-        console.error('Token refresh error:', error);
+        console.error('Scheduled token refresh error:', error);
         dispatch(clearUser());
         navigate('/auth', { replace: true });
       } finally {
@@ -50,61 +56,93 @@ const Root = () => {
     }, refreshTime);
   };
 
+  const processRetryQueue = (error = null) => {
+    retryQueue.current.forEach(({ resolve, reject, originalRequest }) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(api(originalRequest));
+      }
+    });
+    retryQueue.current = [];
+  };
+
+  const attemptTokenRefresh = async () => {
+    try {
+      const refreshResponse = await api.post('/auth/refresh');
+      
+      if (refreshResponse.status === 200) {
+        const userResponse = await api.get('/auth/me');
+        dispatch(
+          setUser({
+            userName: userResponse.data.userName,
+            roles: userResponse.data.roles,
+          })
+        );
+        scheduleTokenRefresh();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     const interceptor = api.interceptors.response.use(
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
 
+        // Don't intercept if this is during initial app load
+        if (isInitializing.current) {
+          return Promise.reject(error);
+        }
+
         if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+
+          // If already refreshing, queue this request
           if (isRefreshing.current) {
             return new Promise((resolve, reject) => {
               retryQueue.current.push({ resolve, reject, originalRequest });
             });
           }
 
-          originalRequest._retry = true;
           isRefreshing.current = true;
 
           try {
-            const refreshResponse = await api.post('/auth/refresh');
-            if (refreshResponse.status === 200) {
-              const userResponse = await api.get('/auth/me');
-              dispatch(
-                setUser({
-                  userName: userResponse.data.userName,
-                  roles: userResponse.data.roles,
-                })
-              );
-
-              retryQueue.current.forEach(({ resolve, originalRequest }) => {
-                originalRequest._retry = true;
-                resolve(api(originalRequest));
-              });
-              retryQueue.current = [];
-
-              scheduleTokenRefresh();
+            const success = await attemptTokenRefresh();
+            
+            if (success) {
+              processRetryQueue();
               return api(originalRequest);
+            } else {
+              throw new Error('Refresh failed');
             }
           } catch (refreshError) {
+            processRetryQueue(refreshError);
             dispatch(clearUser());
-            dispatch(setLoading(false));
-            retryQueue.current.forEach(({ reject }) => reject(refreshError));
-            retryQueue.current = [];
             navigate('/auth', { replace: true });
             return Promise.reject(refreshError);
           } finally {
             isRefreshing.current = false;
           }
         }
+        
         return Promise.reject(error);
       }
     );
 
-    const fetchCurrentUser = async () => {
+    const initializeAuth = async () => {
       dispatch(setLoading(true));
+      isInitializing.current = true;
+
       try {
+        // First, try to get current user
         const response = await api.get('/auth/me');
+        
         if (response.status === 200) {
           dispatch(
             setUser({
@@ -115,42 +153,70 @@ const Root = () => {
           scheduleTokenRefresh();
         } else {
           dispatch(clearUser());
-          navigate('/auth', { replace: true });
         }
       } catch (err) {
-        console.error('Error fetching current user:', err);
-        dispatch(clearUser());
-        navigate('/auth', { replace: true });
+        // If /auth/me fails, try refresh once
+        if (err.response?.status === 401) {
+          try {
+            const refreshResponse = await api.post('/auth/refresh');
+            
+            if (refreshResponse.status === 200) {
+              const userResponse = await api.get('/auth/me');
+              dispatch(
+                setUser({
+                  userName: userResponse.data.userName,
+                  roles: userResponse.data.roles,
+                })
+              );
+              scheduleTokenRefresh();
+            } else {
+              dispatch(clearUser());
+            }
+          } catch (refreshErr) {
+            console.error('Initial refresh failed:', refreshErr);
+            dispatch(clearUser());
+          }
+        } else {
+          console.error('Error fetching current user:', err);
+          dispatch(clearUser());
+        }
       } finally {
         dispatch(setLoading(false));
+        isInitializing.current = false;
       }
     };
 
-    fetchCurrentUser();
+    initializeAuth();
 
     return () => {
       api.interceptors.response.eject(interceptor);
       if (tokenExpirationTimeout.current) {
         clearTimeout(tokenExpirationTimeout.current);
       }
+      isInitializing.current = false;
+      isRefreshing.current = false;
+      retryQueue.current = [];
     };
   }, [dispatch, navigate]);
 
- const handleLogout = async () => {
-  dispatch(setLoading(true)); // Set loading at the start
-  try {
-    await api.post('/auth/logout');
-  } catch (err) {
-    console.error('Logout error:', err);
-  } finally {
-    if (tokenExpirationTimeout.current) {
-      clearTimeout(tokenExpirationTimeout.current);
+  const handleLogout = async () => {
+    dispatch(setLoading(true));
+    
+    try {
+      await api.post('/auth/logout');
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      if (tokenExpirationTimeout.current) {
+        clearTimeout(tokenExpirationTimeout.current);
+      }
+      isRefreshing.current = false;
+      retryQueue.current = [];
+      dispatch(clearUser());
+      dispatch(setLoading(false));
+      navigate('/auth', { replace: true });
     }
-    dispatch(clearUser());
-    dispatch(setLoading(false)); // Clear loading after clearing user
-    navigate('/auth', { replace: true });
-  }
-};
+  };
 
   return (
     <Routes>
